@@ -1,0 +1,1 @@
+{"name":"kk-three-paket","private":true,"version":"1.0.0","dependencies":{"esbuild":"^0.28.2","postprocessing":"^6.39.5","three":"^0.186.1","troika-three-text":"^0.52.5"},"scripts":{"paket":"esbuild giris.js --bundle --minify --format=iife --legal-comments=eof --outfile=three.bundle.js","fontlar":"node fontlar.js"}}

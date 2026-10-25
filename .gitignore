@@ -1,0 +1,9 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+tools/three-paket/node_modules/
+tools/three-paket/three.bundle.js
+tools/three-paket/fonts.js
+tools/three-paket/fonts/
+wallpaper/kinetik.yeni.js

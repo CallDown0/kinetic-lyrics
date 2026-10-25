@@ -1,0 +1,14 @@
+# PyTorch install.ps1 tarafından CUDA 12.8 dizininden kurulur (torch==2.8.0, torchaudio==2.8.0)
+# Bu sürümler birlikte denendi; whisperx 3.4.5 ctranslate2<4.5 ister (cuDNN 8, bkz. install.ps1)
+whisperx==3.4.5
+faster-whisper==1.2.1
+ctranslate2==4.4.0
+pyannote.audio==3.4.0
+transformers==5.15.1
+numpy==2.2.6
+demucs==4.1.0
+soundfile>=0.12
+yt-dlp[default]>=2026.8.19
+imageio-ffmpeg>=0.5
+# ctranslate2 4.4 pkg_resources'ı içe aktarır (setuptools 81+ onu kaldırdı; temiz ortamda setuptools yok)
+setuptools<81

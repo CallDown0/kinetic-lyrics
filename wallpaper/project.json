@@ -1,0 +1,360 @@
+{
+	"description": "Çalan şarkının sözlerini kinetik tipografiyle oynatır. Şarkıyı Windows medya oturumundan (Spotify, tarayıcıda YouTube…) alır, zamanlı sözleri LRCLIB'den çeker; kamera ve sarsıntı canlı sese göre hareket eder. Müzik çalmıyorken kinetik saat gösterir.",
+	"file": "index.html",
+	"general": {
+		"properties": {
+			"tema": {
+				"order": 100,
+				"text": "Tema",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik (şarkının kapak renkleri)",
+						"value": "oto"
+					},
+					{
+						"label": "Manşet",
+						"value": "manset"
+					},
+					{
+						"label": "Kontrast",
+						"value": "kontrast"
+					},
+					{
+						"label": "Pop",
+						"value": "pop"
+					},
+					{
+						"label": "Zarif",
+						"value": "zarif"
+					},
+					{
+						"label": "Gece",
+						"value": "gece"
+					},
+					{
+						"label": "Kobalt",
+						"value": "kobalt"
+					},
+					{
+						"label": "Orman",
+						"value": "orman"
+					},
+					{
+						"label": "Beyaz",
+						"value": "beyaz"
+					},
+					{
+						"label": "Neon",
+						"value": "neon"
+					},
+					{
+						"label": "Asit",
+						"value": "asit"
+					}
+				]
+			},
+			"stil": {
+				"order": 110,
+				"text": "Animasyon türü",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik (hepsi karışık)",
+						"value": "oto"
+					},
+					{
+						"label": "Sade ve akıcı",
+						"value": "sade"
+					},
+					{
+						"label": "Kayan ve düşen",
+						"value": "kayan"
+					},
+					{
+						"label": "Harf harf",
+						"value": "harf"
+					},
+					{
+						"label": "3D",
+						"value": "uc"
+					},
+					{
+						"label": "Sert ve gösterişli",
+						"value": "sert"
+					}
+				]
+			},
+			"dizilis": {
+				"order": 120,
+				"text": "Kelime dizilişi",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik",
+						"value": "oto"
+					},
+					{
+						"label": "Dikey kelimeler",
+						"value": "dikey"
+					},
+					{
+						"label": "Kelime kelime kamera",
+						"value": "kamera"
+					},
+					{
+						"label": "Merdiven",
+						"value": "merdiven"
+					},
+					{
+						"label": "Düz sıralar",
+						"value": "satir"
+					}
+				]
+			},
+			"arkaplan": {
+				"order": 130,
+				"text": "Arka plan",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik (her şarkıda farklı)",
+						"value": "oto"
+					},
+					{
+						"label": "3D Galaksi",
+						"value": "3d-parcacik"
+					},
+					{
+						"label": "3D Arazi",
+						"value": "3d-zemin"
+					},
+					{
+						"label": "Çizgiler",
+						"value": "cizgi"
+					},
+					{
+						"label": "Halkalar",
+						"value": "halka"
+					},
+					{
+						"label": "Şekiller",
+						"value": "sekil"
+					},
+					{
+						"label": "Izgara",
+						"value": "izgara"
+					},
+					{
+						"label": "Şeritler",
+						"value": "serit"
+					},
+					{
+						"label": "Yok",
+						"value": "yok"
+					}
+				]
+			},
+			"gecis": {
+				"order": 140,
+				"text": "Ekran geçişi",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik",
+						"value": "oto"
+					},
+					{
+						"label": "Bölünme",
+						"value": "bol"
+					},
+					{
+						"label": "Zoom",
+						"value": "zoom"
+					},
+					{
+						"label": "Jaluzi",
+						"value": "jaluzi"
+					},
+					{
+						"label": "Kayma",
+						"value": "kayma"
+					},
+					{
+						"label": "Sade",
+						"value": "sade"
+					}
+				]
+			},
+			"cikis": {
+				"order": 150,
+				"text": "Satır sonu efekti",
+				"type": "combo",
+				"value": "oto",
+				"options": [
+					{
+						"label": "Otomatik",
+						"value": "oto"
+					},
+					{
+						"label": "Kum",
+						"value": "kum"
+					},
+					{
+						"label": "Erime",
+						"value": "erime"
+					},
+					{
+						"label": "Domino",
+						"value": "domino"
+					},
+					{
+						"label": "Kırılma",
+						"value": "kirilma"
+					},
+					{
+						"label": "Yok",
+						"value": "yok"
+					}
+				]
+			},
+			"kelimekarma": {
+				"order": 200,
+				"text": "Her kelime farklı animasyon",
+				"type": "bool",
+				"value": true
+			},
+			"muzik": {
+				"order": 210,
+				"text": "Müziğe tepki (bas, vuruş, nefes, hızlı satır)",
+				"type": "bool",
+				"value": true
+			},
+			"anlam": {
+				"order": 220,
+				"text": "Kelime anlamı efektleri (çizimler, duygular, hece uzama)",
+				"type": "bool",
+				"value": true
+			},
+			"sahnefx": {
+				"order": 230,
+				"text": "Sahne efektleri (renk silme, bölünmüş ekran, final posteri)",
+				"type": "bool",
+				"value": true
+			},
+			"sinema": {
+				"order": 232,
+				"text": "Sinema efektleri (şok dalgası, gren, renk kayması)",
+				"type": "bool",
+				"value": true
+			},
+			"sinemasiddet": {
+				"order": 233,
+				"text": "Sinema efektlerinin şiddeti",
+				"type": "slider",
+				"value": 60,
+				"min": 0,
+				"max": 100,
+				"step": 1,
+				"fraction": false,
+				"editable": true
+			},
+			"parcacik": {
+				"order": 240,
+				"text": "Parçacıklar",
+				"type": "bool",
+				"value": true
+			},
+			"fare": {
+				"order": 250,
+				"text": "Fareyle etkileşim",
+				"type": "bool",
+				"value": true
+			},
+			"takip": {
+				"order": 300,
+				"text": "Kamera hareketi",
+				"type": "slider",
+				"min": 0,
+				"max": 100,
+				"step": 1,
+				"value": 70
+			},
+			"sarsinti": {
+				"order": 310,
+				"text": "Vuruş sarsıntısı",
+				"type": "slider",
+				"min": 0,
+				"max": 100,
+				"step": 1,
+				"value": 50
+			},
+			"donus": {
+				"order": 320,
+				"text": "90° dönüşler",
+				"type": "slider",
+				"min": 0,
+				"max": 100,
+				"step": 1,
+				"value": 55
+			},
+			"saat": {
+				"order": 400,
+				"text": "Müzik yokken saat",
+				"type": "bool",
+				"value": true
+			},
+			"sarkibilgisi": {
+				"order": 410,
+				"text": "Şarkı kartı",
+				"type": "bool",
+				"value": true
+			},
+			"durum": {
+				"order": 420,
+				"text": "Durum yazısı",
+				"type": "bool",
+				"value": true
+			},
+			"buyukharf": {
+				"order": 430,
+				"text": "Büyük harf",
+				"type": "bool",
+				"value": true
+			},
+			"ceviri": {
+				"order": 500,
+				"text": "Yabancı sözlerde Türkçe çeviri",
+				"type": "bool",
+				"value": false
+			},
+			"sozkaydir": {
+				"order": 510,
+				"text": "Sözleri kaydır (sn, + öne alır)",
+				"type": "slider",
+				"min": -3,
+				"max": 3,
+				"step": 0.1,
+				"precision": 1,
+				"fraction": true,
+				"value": 0
+			},
+			"senkronsifirla": {
+				"order": 520,
+				"text": "Bu şarkının tıklama senkronunu sıfırla",
+				"type": "bool",
+				"value": false
+			}
+		},
+		"supportsaudioprocessing": true
+	},
+	"preview": "preview.jpg",
+	"title": "Kinetik Klip Canlı",
+	"type": "web",
+	"visibility": "private"
+}
