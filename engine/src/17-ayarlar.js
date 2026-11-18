@@ -65,7 +65,8 @@ window.wallpaperPropertyListener = {
       const was = S.ai; S.ai = !!p.yapayzeka.value;
       if (S.ai && !was && WS_LAST && WS_LAST.key === M.key) wordSync(WS_LAST.key, WS_LAST.src, WS_LAST.timed); // çalan şarkı için hemen başla
     }
-    if (p.spektrum) S.spec = p.spektrum.value || 'kapali';
+    if (p.spektrum){ const v = p.spektrum.value || 'kapali'; S.spec = v === 'kapali' || SPK.includes(v) ? v : 'tel'; } // eski türler (çubuk, dalga…) tele düşer
+    if (p.spektrumboy) S.specSize = clamp(+p.spektrumboy.value / 100, .4, 2.5);
     if (p.plak) S.record = !!p.plak.value;
     if (p.tani) S.diag = !!p.tani.value;
     if (p.ceviri){ const was = S.translate; S.translate = !!p.ceviri.value; if (S.translate && !was && mode === 'lyrics' && M.key) loadTranslation(M.key); }

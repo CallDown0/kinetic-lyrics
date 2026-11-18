@@ -13,19 +13,31 @@
 				"order": 245,
 				"text": "Ses spektrumu",
 				"type": "combo",
-				"value": "cubuk",
+				"value": "tel",
 				"options": [
 					{
 						"label": "Kapalı",
 						"value": "kapali"
 					},
 					{
-						"label": "Çubuklar",
-						"value": "cubuk"
+						"label": "Tel (tek çizgi)",
+						"value": "tel"
 					},
 					{
-						"label": "Dalga",
-						"value": "dalga"
+						"label": "İzler (katmanlı çizgiler)",
+						"value": "izler"
+					},
+					{
+						"label": "Cetvel (ince çentikler)",
+						"value": "cetvel"
+					},
+					{
+						"label": "Yarım ton (baskı noktaları)",
+						"value": "yarimton"
+					},
+					{
+						"label": "Halka (ortada)",
+						"value": "halka"
 					}
 				]
 			},
@@ -186,6 +198,10 @@
 					{
 						"label": "3D Bulutlar",
 						"value": "3d-bulut"
+					},
+					{
+						"label": "3D Ses manzarası (spektrum)",
+						"value": "3d-spektrum"
 					},
 					{
 						"label": "Albüm kapağı (bulanık)",
@@ -551,6 +567,15 @@
 				"text": "Hava olayları (yağmur, kar, yaprak, kor, toz, konfeti, şimşek)",
 				"type": "bool",
 				"value": true
+			},
+			"spektrumboy": {
+				"order": 246,
+				"text": "Spektrum boyutu",
+				"type": "slider",
+				"min": 50,
+				"max": 200,
+				"step": 5,
+				"value": 100
 			}
 		},
 		"supportsaudioprocessing": true

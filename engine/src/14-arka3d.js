@@ -2,11 +2,11 @@
 // Sözler 2D tuvalde kalır. 3D açıkken 2D tuval zemini boyamaz (şeffaf), 2D arka plan efektleri ve nokta dokusu çizilmez.
 // Saat ekranı opak olduğu için orada 3D hiç çizilmez. Sahneler tamamen shader'da (kare başına birkaç çizim çağrısı):
 // parcacik (kollarıyla dönen galaksi), zemin (müzikle kabaran tel kafes arazi), tunel (içinden geçilen ızgara tünel),
-// su (dalgalanan deniz yüzeyi), bulut (kubbede süzülen bulutlar).
+// su (dalgalanan deniz yüzeyi), bulut (kubbede süzülen bulutlar), spektrum (ses manzarası: müziğin geçmişi sıra sıra tepeler).
 // Renkler zemine karıştırılır ki yazı okunur kalsın; bas, enerji ve vuruşa tepki verir. Kamera, sözlerin kamerasının
 // yönelimini kısılmış ve yumuşatılmış olarak izler: yazı dönerken arka plan da onunla döner.
 const B3 = {tried: false, ok: false, want: false, shown: false, kind: '', key: null, prevKind: '', off: 0, bgCol: '#000000'};
-const BG3_KINDS = ['parcacik', 'zemin', 'tunel', 'su', 'bulut'];
+const BG3_KINDS = ['parcacik', 'zemin', 'tunel', 'su', 'bulut', 'spektrum'];
 const B3_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -35,7 +35,7 @@ function bg3Init(){
   B3.q = new T3.Quaternion(); B3.qt = new T3.Quaternion(); B3.q0 = new T3.Quaternion(); B3.m = new T3.Matrix4();
   B3.qp = new T3.Quaternion(); B3.ax = new T3.Vector3(1, 0, 0);
   B3.v = [new T3.Vector3(), new T3.Vector3(), new T3.Vector3()];
-  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3), tunel: b3Tunnel(T3), su: b3Water(T3), bulut: b3Clouds(T3)};
+  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3), tunel: b3Tunnel(T3), su: b3Water(T3), bulut: b3Clouds(T3), spektrum: b3Spectrum(T3)};
   for (const k in B3.objs) B3.scene.add(B3.objs[k]);
   // shader'lar açılışta derlenir (sahne ilk göründüğü karede derlenince takılma oluyordu)
   try { B3.r.compile(B3.scene, B3.cam); } catch(_){}
@@ -173,6 +173,54 @@ function b3Clouds(T3){
   return m;
 }
 
+// ses manzarası: spektrumun her anı bir sıra tepe; yeni sıra ufukta doğar, kameraya doğru akar ve altından geçer.
+// Bas ortada, tizler iki yanda. Yüzey zemin rengiyle opaktır: öndeki sıra arkadakini örter (yalnız sırt çizgileri görünür).
+// Ufuktaki sıralar daha yüksek çizilir ki müziğe tepki hemen görünsün; kameranın önü vadi kalır (yazının arkası sakin).
+// Veri: SP.s, 30 sıra/sn, 128 sıralık halka doku (tek kanal); köşe shader'ı kendi sırasının dokusunu okur.
+const SP3_N = 128, SP3_DZ = 220 / (SP3_N - 1);
+function b3Spectrum(T3){
+  const data = B3.spData = new Uint8Array(SPN * SP3_N), tex = B3.spTex = new T3.DataTexture(data, SPN, SP3_N, T3.RedFormat, T3.UnsignedByteType);
+  tex.magFilter = tex.minFilter = T3.LinearFilter; tex.wrapT = T3.RepeatWrapping; tex.generateMipmaps = false; tex.needsUpdate = true;
+  B3.spHead = 0; B3.spAcc = 0; B3.uSp = {uSp: {value: tex}, uHead: {value: 0}, uFr: {value: 0}};
+  const geo = new T3.PlaneGeometry(520, 220, 260, SP3_N - 1); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, -104); // z: −214 (ufuk) … 6
+  const mat = new T3.ShaderMaterial({uniforms: Object.assign({}, B3.u, B3.uSp),
+    vertexShader: `uniform sampler2D uSp; uniform float uHead, uFr, uBass, uE; varying float vR, vD, vH;
+      void main(){
+        vec3 p = position; float r = floor((p.z + 214.) / ${SP3_DZ.toFixed(5)} + .5);
+        p.z += uFr * ${SP3_DZ.toFixed(5)};
+        float u = abs(p.x) / 150.;
+        float a = texture2D(uSp, vec2(min(u, 1.) * ${((SPN - 1) / SPN).toFixed(5)} + ${(.5 / SPN).toFixed(5)}, (uHead - r + .5) / ${SP3_N}.)).r;
+        a *= 1. - smoothstep(.8, 1.05, u);
+        float dist = -p.z;
+        float valley = mix(smoothstep(2., 18., abs(p.x)), 1., smoothstep(30., 80., dist));
+        float h = a * (7.5 + uE * 3.) * (.8 + uBass * .45) * mix(.7, 3., smoothstep(20., 210., dist)) * valley;
+        p.y += h; vH = a * valley; vR = r;
+        vec4 mv = modelViewMatrix * vec4(p, 1.); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uBg, uFg, uAc; uniform float uBeat; varying float vR, vD, vH;
+      void main(){
+        float fw = fwidth(vR), a = abs(fract(vR - .5) - .5) / fw;
+        float line = mix(1. - min(a * .75, 1.), .22, smoothstep(.35, .9, fw)); // uzakta çizgiler birleşince düz parlaklığa döner
+        float fog = smoothstep(216., 190., vD) * (.6 + .4 * smoothstep(170., 15., vD)) * smoothstep(1., 9., vD);
+        vec3 lc = mix(uFg, uAc, smoothstep(.3, .85, vH));
+        vec3 c = mix(uBg, lc, line * fog * (.72 + .28 * vH + uBeat * .12));
+        gl_FragColor = vec4(mix(c, lc, vH * .07 * fog), 1.); }`});
+  const m = new T3.Mesh(geo, mat); m.position.y = -5.5; m.frustumCulled = false;
+  return m;
+}
+// ses manzarasına yeni sıralar ekler (kare hızından bağımsız 30 sıra/sn; duraklatılmışken akış yavaşlar)
+function b3SpStep(dt){
+  spStep(dt);
+  B3.spAcc += dt * 30 * (M.playing === false ? .25 : 1);
+  let n = 0;
+  while (B3.spAcc >= 1 && n++ < 4){
+    B3.spAcc -= 1; B3.spHead = (B3.spHead + 1) % SP3_N;
+    const o = B3.spHead * SPN; for (let b = 0; b < SPN; b++) B3.spData[o + b] = Math.round(clamp(SP.s[b], 0, 1) * 255);
+    B3.spTex.needsUpdate = true;
+  }
+  if (B3.spAcc >= 1) B3.spAcc = 0;
+  B3.uSp.uHead.value = B3.spHead; B3.uSp.uFr.value = B3.spAcc;
+}
+
 // render() karede bir kez sorar: 3D arka plan bu karede çizilecek mi (saat ekranında değil, ayar açık, WebGL var)
 // arka plan 'Otomatik' ise her şarkıda yarı yarıya 3D sahne ya da 2D efekt
 function bg3Want(){
@@ -189,6 +237,7 @@ function bg3Kind(){
 // 3D sahnenin bu kareki durumu: renkler, müzik değerleri, kamera (çizim glFrame'de)
 function bg3Update(T, dt){
   const k = bg3Kind();
+  if (k === 'spektrum') b3SpStep(dt);
   if (k !== B3.kind){ for (const n in B3.objs) B3.objs[n].visible = n === k; B3.kind = k; }
   // renkler: zemin aynen (2D tuvalin altında görünen zemin bu), çizgiler zemine doğru kısık
   const P = pre(), kc = 1 - Math.exp(-dt * 3);
@@ -205,10 +254,10 @@ function bg3Update(T, dt){
     v[0].set(rt[0], -rt[1], -rt[2]); v[1].set(up[0], -up[1], -up[2]); v[2].set(-f[0], f[1], f[2]);
     B3.qt.setFromRotationMatrix(B3.m.makeBasis(v[0], v[1], v[2])); B3.qt.slerpQuaternions(B3.q0, B3.qt, .55);
   }
-  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' ? -.1 : k === 'su' ? -.13 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
+  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' || k === 'spektrum' ? -.1 : k === 'su' ? -.13 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
   if (snapCam) B3.q.copy(B3.qt); else B3.q.slerp(B3.qt, 1 - Math.exp(-dt * 3.5));
   B3.cam.quaternion.copy(B3.q);
-  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' || k === 'su' ? 1.2 : 0), 0);
+  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' || k === 'su' || k === 'spektrum' ? 1.2 : 0), 0);
 }
 
 /* ---------- sinema efektleri (ayar sinema + sinemasiddet) ----------

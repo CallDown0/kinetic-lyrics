@@ -75,7 +75,10 @@ function camStep(T, dt, VW, VH){
   const sp = vlen(CAM.vt), goal = Math.min(sp * .22, 900);
   CAM.pull += (goal - CAM.pull) * Math.min(1, dt * 4);
   // sağ = ileri × yukarı (dünyada y aşağı); yukarı = sağ × ileri
-  const f = vnorm(vsub(CAM.t, CAM.p)), r = vnorm(vcross(f, vnorm(CAM.u))), u = vcross(r, f);
+  let f = vnorm(vsub(CAM.t, CAM.p)), r = vnorm(vcross(f, vnorm(CAM.u))), u = vcross(r, f);
+  // fare: kamera imlece doğru birkaç derece bakar (ekranda y aşağı, kamerada yukarı: işaret ters)
+  mouseTilt(dt);
+  if (Math.abs(MFX.tx) + Math.abs(MFX.ty) > .002){ f = vnorm(vadd(f, vadd(vmul(r, MFX.tx * .035), vmul(u, -MFX.ty * .028)))); r = vnorm(vcross(f, u)); u = vcross(r, f); }
   CAM.f = f; CAM.r = r; CAM.up = u; CAM.F = VH / (2 * Math.tan(FOV / 2));
   CAM.eye = vsub(CAM.p, vmul(f, CAM.pull));
 }

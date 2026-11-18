@@ -21,7 +21,7 @@ function render(T, dt){
   if (li !== RLI){ const was = RLI; RLI = li; if (mode === 'lyrics' && li === was + 1 && blocks[was] && cb && T - cb.t0 < 1) lineChange(blocks[was], cb, T); }
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
   B3.want = false;
-  if (mode === 'idle' && S.clock){ drawIdleClock(T, dt, P, VW, VH); return; }
+  if (mode === 'idle' && S.clock){ mouseTilt(dt); drawIdleClock(T, dt, P, VW, VH); drawMouseFx(P, VW, VH); return; }
   B3.want = bg3Want(); // 3D arka plan: 2D tuval zemin boyamaz, şeffaf kalır
   // zemin: Pop'ta yeni satır rengi ortadan daire; dev stilinde vuruşta zemin/yazı rengi yer değiştirir
   let bgCol = P.bg, fgSwap = false;
@@ -129,6 +129,7 @@ function render(T, dt){
   }
   drawIcons(T, li, Pd, cb);
   drawParticles(Pd);
+  drawMouseFx(Pd, VW, VH);
   drawWeather(T, dt, Pd, VW, VH, e, cb, li);
   if (SPL && SPLS > 0) drawSplit(T, P, e);
   if (WP) drawWipe(T, P);

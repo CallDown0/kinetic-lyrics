@@ -6,7 +6,7 @@ const PAGE = 'file://' + path.resolve(__dirname, '..', '..', 'wallpaper', 'index
 const f = x => `00:${x.toFixed(2).padStart(5, '0')}`;
 const LRC = Array.from({length: 20}, (_, i) => `[${f(i * 3)}] hello world this is line ${i} love fire rain`).join('\n');
 const ELRC = Array.from({length: 20}, (_, i) => `[${f(i * 3)}] <${f(i * 3)}> hello <${f(i * 3 + .5)}> world <${f(i * 3 + 1.2)}> line${i} <${f(i * 3 + 2)}>`).join('\n');
-let browser, failed = 0;
+let browser, failed = 0, SPI = 0;
 
 // sayfayı açar, şarkıyı başlatır; senk: yerel sunucuya giden kelime senkronu isteklerinin sayısı
 async function open(props, lrc, seed){
@@ -96,10 +96,13 @@ const ok = (c, msg) => { if (!c) throw new Error(msg); };
     const o = await open({tema: {value: 'ozel'}, ozelzemin: {value: '0.05 0.2 0.18'}, ozelyazi: {value: '1 0.95 0.8'}, ozelvurgu: {value: '1 0.4 0.7'}, ozelfont: {value: 'serif'}});
     ok(await lyricsUp(o), 'sözler gelmedi');
     await o.p.evaluate(() => { let t = 0; setInterval(() => { t += .05; window.__L.Audio(Array.from({length: 128}, (_, i) => Math.abs(Math.sin(t * 5 + i)) * (i % 64 < 6 ? 1 : .3))); }, 50); });
-    for (const v of ['3d-parcacik', '3d-zemin', '3d-tunel', '3d-su', '3d-bulut', 'kapak', 'isin', 'cizgi', 'halka', 'sekil', 'izgara', 'serit', 'yok']){ await set(o, {arkaplan: {value: v}, spektrum: {value: v < 'i' ? 'cubuk' : 'dalga'}}); await wait(o, 700); }
+    for (const v of ['3d-parcacik', '3d-zemin', '3d-tunel', '3d-su', '3d-bulut', '3d-spektrum', 'kapak', 'isin', 'cizgi', 'halka', 'sekil', 'izgara', 'serit', 'yok']){ await set(o, {arkaplan: {value: v}, spektrum: {value: ['tel', 'izler', 'cetvel', 'yarimton', 'halka'][SPI++ % 5]}}); await wait(o, 700); }
     ok(await o.p.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(13, 51, 46)', 'özel tema zemini uygulanmadı');
     // ekran filtreleri, satır sonu efektleri ve geçişler: kare içi hatalar tanı kaydına düşer
     await set(o, {tani: {value: true}, arkaplan: {value: 'isin'}});
+    // fare: iz, tıklama dalgası ve bakış hatasız çizilir
+    for (let i = 0; i < 12; i++){ await o.p.mouse.move(300 + i * 40, 300 + Math.sin(i) * 80); await wait(o, 30); }
+    await o.p.mouse.click(640, 360); await wait(o, 400);
     for (const v of ['vhs', 'yarimton', 'kapali']){ await set(o, {filtre: {value: v}}); await wait(o, 700); }
     for (const v of ['yanma', 'buhar', 'piksel']){ await set(o, {cikis: {value: v}}); await wait(o, 3200); }
     for (const v of ['murekkep', 'iris', 'sayfa']){ await set(o, {gecis: {value: v}}); await o.p.evaluate(v => window.__L.MediaProperties({title: 'Test Song ' + v, artist: 'Tester'}), v); await wait(o, 1500); }

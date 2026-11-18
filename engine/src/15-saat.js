@@ -27,7 +27,9 @@ function drawIdleClock(T, dt, P, VW, VH){
     s.x += Math.cos(s.a) * sp * dt * (VH / VW); s.y += Math.sin(s.a) * sp * dt;
     if (s.x < -.1) s.x += 1.2; else if (s.x > 1.1) s.x -= 1.2;
     if (s.y < -.1) s.y += 1.2; else if (s.y > 1.1) s.y -= 1.2;
-    const x = s.x * VW, y = s.y * VH;
+    // fare: şekiller derinliklerine göre imlecin tersine kayar ve imleçten kaçar
+    let x = s.x * VW - MFX.tx * s.z * m * .03, y = s.y * VH - MFX.ty * s.z * m * .03;
+    { const mp = mouseRepel(s, x, y, m * .17, dt); x += mp[0]; y += mp[1]; }
     const near = clamp(1 - Math.max(Math.abs(x - VW / 2) / cw, Math.abs(y - VH / 2) / ch), 0, 1);
     const sz = m * (.012 + .03 * s.z) * (1 + .06 * Math.sin(T * .8 + s.ph) + .18 * L.beat * s.z);
     const t = (s.ac ? 1 : .12 + .2 * s.z) * (1 - near * .85);

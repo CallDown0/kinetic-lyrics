@@ -23,8 +23,8 @@ const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, 
   exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6,
   // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
   // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
-  // spec: ses spektrumu (kapali | cubuk | dalga); record: şarkı kartındaki kapak plak gibi döner
-  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true, clockKind:'dijital', weather:true, depth:true, distort:true, filter:'kapali' };
+  // spec: ses spektrumu (kapali | tel | izler | cetvel | yarimton | halka), specSize: boyut çarpanı; record: şarkı kartındaki kapak plak gibi döner
+  ai:true, diag:false, spec:'tel', specSize:1, record:true, bloom:true, beatflash:true, clockKind:'dijital', weather:true, depth:true, distort:true, filter:'kapali' };
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (REDUCED) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
@@ -1309,7 +1309,10 @@ function camStep(T, dt, VW, VH){
   const sp = vlen(CAM.vt), goal = Math.min(sp * .22, 900);
   CAM.pull += (goal - CAM.pull) * Math.min(1, dt * 4);
   // sağ = ileri × yukarı (dünyada y aşağı); yukarı = sağ × ileri
-  const f = vnorm(vsub(CAM.t, CAM.p)), r = vnorm(vcross(f, vnorm(CAM.u))), u = vcross(r, f);
+  let f = vnorm(vsub(CAM.t, CAM.p)), r = vnorm(vcross(f, vnorm(CAM.u))), u = vcross(r, f);
+  // fare: kamera imlece doğru birkaç derece bakar (ekranda y aşağı, kamerada yukarı: işaret ters)
+  mouseTilt(dt);
+  if (Math.abs(MFX.tx) + Math.abs(MFX.ty) > .002){ f = vnorm(vadd(f, vadd(vmul(r, MFX.tx * .035), vmul(u, -MFX.ty * .028)))); r = vnorm(vcross(f, u)); u = vcross(r, f); }
   CAM.f = f; CAM.r = r; CAM.up = u; CAM.F = VH / (2 * Math.tan(FOV / 2));
   CAM.eye = vsub(CAM.p, vmul(f, CAM.pull));
 }
@@ -2052,8 +2055,8 @@ function drawDots(P, kick){
   for (const s of DOTS){
     const p = [e[0] + ((s[0] - e[0]) % B + B * 1.5) % B - B / 2, e[1] + ((s[1] - e[1]) % B + B * 1.5) % B - B / 2, s[2]];
     const q = proj(p); if (!q) continue;
-    const r = Math.max(1, 1600 / q[2] * (1 + kick * .5)) * cv.height / 1080;
-    g.globalAlpha = .1 + kick * .06; g.fillRect(q[0] - r, q[1] - r, r * 2, r * 2);
+    const nr = mouseNear(q[0], q[1], cv.height * .22), r = Math.max(1, 1600 / q[2] * (1 + kick * .5)) * cv.height / 1080 * (1 + nr * 2.2); // imlecin çevresinde büyür
+    g.globalAlpha = .1 + kick * .06 + nr * .3; g.fillRect(q[0] - r, q[1] - r, r * 2, r * 2);
   }
 }
 
@@ -2795,11 +2798,11 @@ const mlSem = raw => { if (!MLS) MLS = mlPrep(ML_SEM); return mlFind(raw, MLS); 
 // Sözler 2D tuvalde kalır. 3D açıkken 2D tuval zemini boyamaz (şeffaf), 2D arka plan efektleri ve nokta dokusu çizilmez.
 // Saat ekranı opak olduğu için orada 3D hiç çizilmez. Sahneler tamamen shader'da (kare başına birkaç çizim çağrısı):
 // parcacik (kollarıyla dönen galaksi), zemin (müzikle kabaran tel kafes arazi), tunel (içinden geçilen ızgara tünel),
-// su (dalgalanan deniz yüzeyi), bulut (kubbede süzülen bulutlar).
+// su (dalgalanan deniz yüzeyi), bulut (kubbede süzülen bulutlar), spektrum (ses manzarası: müziğin geçmişi sıra sıra tepeler).
 // Renkler zemine karıştırılır ki yazı okunur kalsın; bas, enerji ve vuruşa tepki verir. Kamera, sözlerin kamerasının
 // yönelimini kısılmış ve yumuşatılmış olarak izler: yazı dönerken arka plan da onunla döner.
 const B3 = {tried: false, ok: false, want: false, shown: false, kind: '', key: null, prevKind: '', off: 0, bgCol: '#000000'};
-const BG3_KINDS = ['parcacik', 'zemin', 'tunel', 'su', 'bulut'];
+const BG3_KINDS = ['parcacik', 'zemin', 'tunel', 'su', 'bulut', 'spektrum'];
 const B3_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -2828,7 +2831,7 @@ function bg3Init(){
   B3.q = new T3.Quaternion(); B3.qt = new T3.Quaternion(); B3.q0 = new T3.Quaternion(); B3.m = new T3.Matrix4();
   B3.qp = new T3.Quaternion(); B3.ax = new T3.Vector3(1, 0, 0);
   B3.v = [new T3.Vector3(), new T3.Vector3(), new T3.Vector3()];
-  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3), tunel: b3Tunnel(T3), su: b3Water(T3), bulut: b3Clouds(T3)};
+  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3), tunel: b3Tunnel(T3), su: b3Water(T3), bulut: b3Clouds(T3), spektrum: b3Spectrum(T3)};
   for (const k in B3.objs) B3.scene.add(B3.objs[k]);
   // shader'lar açılışta derlenir (sahne ilk göründüğü karede derlenince takılma oluyordu)
   try { B3.r.compile(B3.scene, B3.cam); } catch(_){}
@@ -2966,6 +2969,54 @@ function b3Clouds(T3){
   return m;
 }
 
+// ses manzarası: spektrumun her anı bir sıra tepe; yeni sıra ufukta doğar, kameraya doğru akar ve altından geçer.
+// Bas ortada, tizler iki yanda. Yüzey zemin rengiyle opaktır: öndeki sıra arkadakini örter (yalnız sırt çizgileri görünür).
+// Ufuktaki sıralar daha yüksek çizilir ki müziğe tepki hemen görünsün; kameranın önü vadi kalır (yazının arkası sakin).
+// Veri: SP.s, 30 sıra/sn, 128 sıralık halka doku (tek kanal); köşe shader'ı kendi sırasının dokusunu okur.
+const SP3_N = 128, SP3_DZ = 220 / (SP3_N - 1);
+function b3Spectrum(T3){
+  const data = B3.spData = new Uint8Array(SPN * SP3_N), tex = B3.spTex = new T3.DataTexture(data, SPN, SP3_N, T3.RedFormat, T3.UnsignedByteType);
+  tex.magFilter = tex.minFilter = T3.LinearFilter; tex.wrapT = T3.RepeatWrapping; tex.generateMipmaps = false; tex.needsUpdate = true;
+  B3.spHead = 0; B3.spAcc = 0; B3.uSp = {uSp: {value: tex}, uHead: {value: 0}, uFr: {value: 0}};
+  const geo = new T3.PlaneGeometry(520, 220, 260, SP3_N - 1); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, -104); // z: −214 (ufuk) … 6
+  const mat = new T3.ShaderMaterial({uniforms: Object.assign({}, B3.u, B3.uSp),
+    vertexShader: `uniform sampler2D uSp; uniform float uHead, uFr, uBass, uE; varying float vR, vD, vH;
+      void main(){
+        vec3 p = position; float r = floor((p.z + 214.) / ${SP3_DZ.toFixed(5)} + .5);
+        p.z += uFr * ${SP3_DZ.toFixed(5)};
+        float u = abs(p.x) / 150.;
+        float a = texture2D(uSp, vec2(min(u, 1.) * ${((SPN - 1) / SPN).toFixed(5)} + ${(.5 / SPN).toFixed(5)}, (uHead - r + .5) / ${SP3_N}.)).r;
+        a *= 1. - smoothstep(.8, 1.05, u);
+        float dist = -p.z;
+        float valley = mix(smoothstep(2., 18., abs(p.x)), 1., smoothstep(30., 80., dist));
+        float h = a * (7.5 + uE * 3.) * (.8 + uBass * .45) * mix(.7, 3., smoothstep(20., 210., dist)) * valley;
+        p.y += h; vH = a * valley; vR = r;
+        vec4 mv = modelViewMatrix * vec4(p, 1.); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uBg, uFg, uAc; uniform float uBeat; varying float vR, vD, vH;
+      void main(){
+        float fw = fwidth(vR), a = abs(fract(vR - .5) - .5) / fw;
+        float line = mix(1. - min(a * .75, 1.), .22, smoothstep(.35, .9, fw)); // uzakta çizgiler birleşince düz parlaklığa döner
+        float fog = smoothstep(216., 190., vD) * (.6 + .4 * smoothstep(170., 15., vD)) * smoothstep(1., 9., vD);
+        vec3 lc = mix(uFg, uAc, smoothstep(.3, .85, vH));
+        vec3 c = mix(uBg, lc, line * fog * (.72 + .28 * vH + uBeat * .12));
+        gl_FragColor = vec4(mix(c, lc, vH * .07 * fog), 1.); }`});
+  const m = new T3.Mesh(geo, mat); m.position.y = -5.5; m.frustumCulled = false;
+  return m;
+}
+// ses manzarasına yeni sıralar ekler (kare hızından bağımsız 30 sıra/sn; duraklatılmışken akış yavaşlar)
+function b3SpStep(dt){
+  spStep(dt);
+  B3.spAcc += dt * 30 * (M.playing === false ? .25 : 1);
+  let n = 0;
+  while (B3.spAcc >= 1 && n++ < 4){
+    B3.spAcc -= 1; B3.spHead = (B3.spHead + 1) % SP3_N;
+    const o = B3.spHead * SPN; for (let b = 0; b < SPN; b++) B3.spData[o + b] = Math.round(clamp(SP.s[b], 0, 1) * 255);
+    B3.spTex.needsUpdate = true;
+  }
+  if (B3.spAcc >= 1) B3.spAcc = 0;
+  B3.uSp.uHead.value = B3.spHead; B3.uSp.uFr.value = B3.spAcc;
+}
+
 // render() karede bir kez sorar: 3D arka plan bu karede çizilecek mi (saat ekranında değil, ayar açık, WebGL var)
 // arka plan 'Otomatik' ise her şarkıda yarı yarıya 3D sahne ya da 2D efekt
 function bg3Want(){
@@ -2982,6 +3033,7 @@ function bg3Kind(){
 // 3D sahnenin bu kareki durumu: renkler, müzik değerleri, kamera (çizim glFrame'de)
 function bg3Update(T, dt){
   const k = bg3Kind();
+  if (k === 'spektrum') b3SpStep(dt);
   if (k !== B3.kind){ for (const n in B3.objs) B3.objs[n].visible = n === k; B3.kind = k; }
   // renkler: zemin aynen (2D tuvalin altında görünen zemin bu), çizgiler zemine doğru kısık
   const P = pre(), kc = 1 - Math.exp(-dt * 3);
@@ -2998,10 +3050,10 @@ function bg3Update(T, dt){
     v[0].set(rt[0], -rt[1], -rt[2]); v[1].set(up[0], -up[1], -up[2]); v[2].set(-f[0], f[1], f[2]);
     B3.qt.setFromRotationMatrix(B3.m.makeBasis(v[0], v[1], v[2])); B3.qt.slerpQuaternions(B3.q0, B3.qt, .55);
   }
-  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' ? -.1 : k === 'su' ? -.13 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
+  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' || k === 'spektrum' ? -.1 : k === 'su' ? -.13 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
   if (snapCam) B3.q.copy(B3.qt); else B3.q.slerp(B3.qt, 1 - Math.exp(-dt * 3.5));
   B3.cam.quaternion.copy(B3.q);
-  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' || k === 'su' ? 1.2 : 0), 0);
+  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' || k === 'su' || k === 'spektrum' ? 1.2 : 0), 0);
 }
 
 /* ---------- sinema efektleri (ayar sinema + sinemasiddet) ----------
@@ -3153,7 +3205,7 @@ function render(T, dt){
   if (li !== RLI){ const was = RLI; RLI = li; if (mode === 'lyrics' && li === was + 1 && blocks[was] && cb && T - cb.t0 < 1) lineChange(blocks[was], cb, T); }
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
   B3.want = false;
-  if (mode === 'idle' && S.clock){ drawIdleClock(T, dt, P, VW, VH); return; }
+  if (mode === 'idle' && S.clock){ mouseTilt(dt); drawIdleClock(T, dt, P, VW, VH); drawMouseFx(P, VW, VH); return; }
   B3.want = bg3Want(); // 3D arka plan: 2D tuval zemin boyamaz, şeffaf kalır
   // zemin: Pop'ta yeni satır rengi ortadan daire; dev stilinde vuruşta zemin/yazı rengi yer değiştirir
   let bgCol = P.bg, fgSwap = false;
@@ -3261,6 +3313,7 @@ function render(T, dt){
   }
   drawIcons(T, li, Pd, cb);
   drawParticles(Pd);
+  drawMouseFx(Pd, VW, VH);
   drawWeather(T, dt, Pd, VW, VH, e, cb, li);
   if (SPL && SPLS > 0) drawSplit(T, P, e);
   if (WP) drawWipe(T, P);
@@ -3393,7 +3446,9 @@ function drawIdleClock(T, dt, P, VW, VH){
     s.x += Math.cos(s.a) * sp * dt * (VH / VW); s.y += Math.sin(s.a) * sp * dt;
     if (s.x < -.1) s.x += 1.2; else if (s.x > 1.1) s.x -= 1.2;
     if (s.y < -.1) s.y += 1.2; else if (s.y > 1.1) s.y -= 1.2;
-    const x = s.x * VW, y = s.y * VH;
+    // fare: şekiller derinliklerine göre imlecin tersine kayar ve imleçten kaçar
+    let x = s.x * VW - MFX.tx * s.z * m * .03, y = s.y * VH - MFX.ty * s.z * m * .03;
+    { const mp = mouseRepel(s, x, y, m * .17, dt); x += mp[0]; y += mp[1]; }
     const near = clamp(1 - Math.max(Math.abs(x - VW / 2) / cw, Math.abs(y - VH / 2) / ch), 0, 1);
     const sz = m * (.012 + .03 * s.z) * (1 + .06 * Math.sin(T * .8 + s.ph) + .18 * L.beat * s.z);
     const t = (s.ac ? 1 : .12 + .2 * s.z) * (1 - near * .85);
@@ -3539,6 +3594,82 @@ function drawBackground(T, dt, P, VW, VH, li, cb, e){
   g.restore();
 }
 
+// ===== src/16-fare.js =====
+/* ---------- fare etkileşimi (ayar fare) ----------
+   Kelimelerin imleçten kaçması 08-kamera.js'te (mousePush). Buradakiler:
+   - bakış: kamera imlece doğru birkaç derece döner (sahne derinlik kazanır); imleç 3 sn durunca ortaya döner
+   - iz: imlecin arkasında vurgu renginde, ucu incelen kısa bir kuyruk
+   - tıklama: iki ince halka + dışa kaçan kısa çizgiler; sözler ekranında sinema efektleri açıksa imleçten şok dalgası
+   - saat ekranı: süzülen şekiller imleçten kaçar ve derinliklerine göre kayar (mouseRepel + MFX.tx/ty)
+   - zemin noktaları imlecin çevresinde büyür (drawDots)
+   Hepsi ekran uzayında, düz renkle; saydam kutu ya da ışık halesi yok. */
+const MFX = {tx: 0, ty: 0, trail: [], rip: [], lastWave: -9};
+const mouseOn = s => S.mouse && nowS() - MOUSE.t < (s || 2.5);
+// yumuşatılmış imleç konumu (−1…1); karede bir kez çağrılır
+function mouseTilt(dt){
+  const on = !REDUCED && mouseOn(3), k = Math.min(1, dt * (on ? 4 : 1.5));
+  MFX.tx += ((on ? clamp(MOUSE.x / cv.width * 2 - 1, -1, 1) : 0) - MFX.tx) * k;
+  MFX.ty += ((on ? clamp(MOUSE.y / cv.height * 2 - 1, -1, 1) : 0) - MFX.ty) * k;
+}
+// imleç yakınındaki nesnenin yaylı kaçışı (durum nesnenin üstünde tutulur); dönen değer ekran kayması [dx, dy]
+function mouseRepel(o, x, y, R, dt){
+  let tx = 0, ty = 0; dt = Math.min(dt, .05);
+  if (mouseOn()){
+    const dx = x - MOUSE.x, dy = y - MOUSE.y, d = Math.hypot(dx, dy) || 1;
+    if (d < R){ const mag = Math.pow(1 - d / R, 2) * R * .7; tx = dx / d * mag; ty = dy / d * mag; }
+  }
+  o.mvx = (o.mvx || 0) * Math.exp(-dt * 7) + (tx - (o.mx || 0)) * dt * 50; o.mvy = (o.mvy || 0) * Math.exp(-dt * 7) + (ty - (o.my || 0)) * dt * 50;
+  o.mx = (o.mx || 0) + o.mvx * dt; o.my = (o.my || 0) + o.mvy * dt;
+  return [o.mx, o.my];
+}
+// imlecin çevresindeki yakınlık (0–1): R yarıçapında yumuşak düşer
+function mouseNear(x, y, R){ return mouseOn() ? Math.max(0, 1 - Math.hypot(x - MOUSE.x, y - MOUSE.y) / R) : 0; }
+
+addEventListener('mousemove', ev => {
+  if (!S.mouse) return;
+  const x = ev.clientX * cv.width / innerWidth, y = ev.clientY * cv.height / innerHeight, l = MFX.trail[MFX.trail.length - 1];
+  if (!l || Math.hypot(x - l.x, y - l.y) > 3){ MFX.trail.push({x, y, t: nowS()}); if (MFX.trail.length > 90) MFX.trail.shift(); }
+});
+addEventListener('mousedown', ev => {
+  if (!S.mouse || ev.button !== 0) return;
+  const x = ev.clientX * cv.width / innerWidth, y = ev.clientY * cv.height / innerHeight, t = nowS();
+  MFX.rip.push({x, y, t, a: Math.random() * 6.2832}); if (MFX.rip.length > 6) MFX.rip.shift();
+  // şok dalgası: sinema zinciri çalışıyorsa (sözler ekranı) imlecin altından yayılır
+  if (mode === 'lyrics' && B3.fxOn && B3.wave && S.cine && !REDUCED && t - MFX.lastWave > .35){
+    MFX.lastWave = t;
+    try {
+      const v = B3.v[0]; v.set(x / cv.width * 2 - 1, 1 - y / cv.height * 2, .5).unproject(B3.cam).sub(B3.cam.position).normalize().multiplyScalar(8).add(B3.cam.position);
+      B3.wave.position.copy(v); B3.wave.amplitude = .035 * S.cineAmt; B3.wave.explode();
+    } catch(_){}
+  }
+});
+
+function drawMouseFx(P, VW, VH){
+  const now = nowS(), m = Math.min(VW, VH), TL = .55, RL = .8, tr = MFX.trail, rp = MFX.rip;
+  while (tr.length && now - tr[0].t > TL) tr.shift();
+  while (rp.length && now - rp[0].t > RL) rp.shift();
+  if (!S.mouse){ tr.length = 0; rp.length = 0; return; }
+  if (tr.length < 3 && !rp.length) return;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.lineCap = 'round'; g.lineJoin = 'round';
+  // iz: orta noktalardan geçen yaylar, kalınlık yaşla incelir
+  g.strokeStyle = P.ac;
+  for (let i = 1; i < tr.length - 1; i++){
+    const a = tr[i - 1], b = tr[i], c = tr[i + 1], f = 1 - (now - b.t) / TL; if (f <= 0) continue;
+    g.lineWidth = Math.max(.6, m * .0058 * f * f);
+    g.beginPath(); g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2); g.quadraticCurveTo(b.x, b.y, (b.x + c.x) / 2, (b.y + c.y) / 2); g.stroke();
+  }
+  // tıklama: dış halka yazı renginde, iç halka vurgu renginde ve biraz geriden; sekiz kısa çizgi dışa kaçar
+  for (const r of rp){
+    const q = (now - r.t) / RL, e = 1 - Math.pow(1 - q, 3), R = m * .1 * e, lw = Math.max(.6, m * .004 * (1 - q));
+    g.lineWidth = lw; g.strokeStyle = P.fg; g.beginPath(); g.arc(r.x, r.y, R, 0, 6.2832); g.stroke();
+    const q2 = clamp(q * 1.25 - .15, 0, 1); if (q2 > 0 && q2 < 1){ g.strokeStyle = P.ac; g.lineWidth = Math.max(.6, m * .003 * (1 - q2)); g.beginPath(); g.arc(r.x, r.y, m * .062 * (1 - Math.pow(1 - q2, 3)), 0, 6.2832); g.stroke(); }
+    g.strokeStyle = P.ac; g.lineWidth = lw; g.beginPath();
+    for (let j = 0; j < 8; j++){ const an = r.a + j * .7854, r0 = R + m * .012, r1 = r0 + m * .022 * (1 - q); g.moveTo(r.x + Math.cos(an) * r0, r.y + Math.sin(an) * r0); g.lineTo(r.x + Math.cos(an) * r1, r.y + Math.sin(an) * r1); }
+    g.stroke();
+  }
+  g.restore();
+}
+
 // ===== src/16-parcacik-ceviri.js =====
 /* ---------- destek efektleri: parçacıklar (dünya uzayında, kamerayla birlikte) ---------- */
 const FX = {last: -1, beatN: 0, pts: []};
@@ -3617,48 +3748,125 @@ async function loadTranslation(key){
 }
 
 // ===== src/16-spektrum-kapak.js =====
-/* ---------- ses spektrumu (ayar spektrum: kapali | cubuk | dalga) ----------
-   Wallpaper Engine'in 128 bantlık sesi 32 banda indirilir (sol + sağ), kendi tepe değerine göre normalize edilir.
-   Ekranın alt ortasında, ortadan iki yana aynalı çizilir (bas ortada). Düz renk: zemin ile yazı renginin karışımı,
-   tepe çizgileri vurgu renginde. Sözler ekranında ve saat ekranında görünür; ses yokken kendiliğinden söner. */
-const SPN = 32, SP = {raw: new Float32Array(SPN), v: new Float32Array(SPN), pk: new Float32Array(SPN), bp: new Float32Array(SPN).fill(.03), peak: .05, at: -9};
+/* ---------- ses spektrumu (ayar spektrum: kapali | tel | izler | cetvel | yarimton | halka) ----------
+   Wallpaper Engine'in 128 bantlık sesi (sol + sağ ortalaması, 64 kutu) 48 banda yayılır: baslara daha çok yer verilir
+   (tizler çoğu şarkıda boş), her kutu kendi tepe değerine göre normalize edilir. Ses ~30/sn gelir; bantlar her karede
+   hedefe doğru akar (hızlı çıkar, yavaş iner). SP.v ham bantlar, SP.s komşularıyla yumuşatılmış eğri, SP.pk yavaş inen zarf.
+   Tasarım dili ekolayzır değil baskı/çizim: ince çizgiler, tek mürekkep (yazı rengi), vurgu rengi yalnız zarfta ve tek
+   noktada. Ekranın alt ortasında, şarkı kartı ile durum yazısının arasındaki ölçüde durur; yazının arkasında çizilir.
+   Aynı veri 3D arka plan 'spektrum' sahnesini de besler (14-arka3d.js). Boyut: ayar spektrumboy (S.specSize). */
+const SPB = 64, SPN = 48, SPH = 9, SPK = ['tel', 'izler', 'cetvel', 'yarimton', 'halka'];
+const SP = {raw: new Float32Array(SPB), bp: new Float32Array(SPB).fill(.03), nr: new Float32Array(SPB), tg: new Float32Array(SPN), v: new Float32Array(SPN),
+  s: new Float32Array(SPN), tmp: new Float32Array(SPN), pk: new Float32Array(SPN), peak: .05, at: -9, stamp: -9, any: false, hist: [], hAcc: 0, dom: 8};
 function spAudio(a){
   let mx = 0;
-  for (let b = 0; b < SPN; b++){
-    const v = ((a[2 * b] || 0) + (a[2 * b + 1] || 0) + (a[64 + 2 * b] || 0) + (a[65 + 2 * b] || 0)) / 4;
-    SP.raw[b] = v; if (v > mx) mx = v; SP.bp[b] = Math.max(v, SP.bp[b] * .9993, .015);
+  for (let i = 0; i < SPB; i++){
+    const v = ((a[i] || 0) + (a[i + 64] || 0)) / 2;
+    SP.raw[i] = v; if (v > mx) mx = v; SP.bp[i] = Math.max(v, SP.bp[i] * .9993, .015);
   }
   SP.peak = Math.max(mx, SP.peak * .999, .03); SP.at = nowS();
 }
+// bantları bir kare ilerletir (karede bir kez; 2D çizim ve 3D sahne aynı kareyi paylaşır); görünür bir şey kalmadıysa false
+function spStep(dt){
+  const t = nowS(); if (t - SP.stamp < .002) return SP.any; SP.stamp = t;
+  const live = t - SP.at < .5; let any = false;
+  // yüksek kutular doğal olarak zayıf: her kutu çoğunlukla kendi tepesine, biraz da genel tepeye göre ölçeklenir
+  for (let i = 0; i < SPB; i++) SP.nr[i] = live ? Math.min(1, Math.pow(SP.raw[i] / (SP.bp[i] * .85 + SP.peak * .15), 1.1)) : 0;
+  for (let b = 0; b < SPN; b++){ const f = Math.pow(b / (SPN - 1), 1.45) * 50, i = Math.floor(f), k = f - i; SP.tg[b] = SP.nr[i] * (1 - k) + SP.nr[i + 1] * k; }
+  for (let b = 0; b < SPN; b++) SP.v[b] += (SP.tg[b] - SP.v[b]) * Math.min(1, dt * (SP.tg[b] > SP.v[b] ? 24 : 5));
+  // yumuşak eğri: iki tur komşu ortalaması (çizgi tasarımları titremesin, aksın)
+  const blur = (a, o) => { for (let b = 0; b < SPN; b++) o[b] = a[b] * .4 + (a[b ? b - 1 : 0] + a[b < SPN - 1 ? b + 1 : SPN - 1]) * .3; };
+  blur(SP.v, SP.tmp); blur(SP.tmp, SP.s);
+  let mb = 0;
+  for (let b = 0; b < SPN; b++){
+    SP.pk[b] = Math.max(SP.s[b], SP.pk[b] - dt * .22);
+    if (SP.pk[b] > .008) any = true;
+    if (SP.s[b] > SP.s[mb]) mb = b;
+  }
+  SP.dom += (mb - SP.dom) * Math.min(1, dt * 5);
+  // geçmiş: 'izler' tasarımı için 0.11 sn'de bir eğrinin kopyası (en yeni başta)
+  SP.hAcc += dt / .11;
+  if (SP.hAcc >= 1){ SP.hAcc = Math.min(SP.hAcc - 1, .99); const r = SP.hist.length > SPH ? SP.hist.pop() : new Float32Array(SPN); r.set(SP.s); SP.hist.unshift(r); }
+  return SP.any = any;
+}
+// kesirli banttaki değer
+const spAt = (a, f) => { const i = Math.min(SPN - 2, Math.max(0, Math.floor(f))), k = clamp(f - i, 0, 1); return a[i] * (1 - k) + a[i + 1] * k; };
+// [x0, y0, x1, y1, …] noktalarından yumuşak eğri (orta noktalardan geçen ikinci derece yaylar); kapalı = halka
+function spPath(p, closed){
+  const n = p.length;
+  if (closed){
+    g.moveTo((p[n - 2] + p[0]) / 2, (p[n - 1] + p[1]) / 2);
+    for (let i = 0; i < n; i += 2){ const j = (i + 2) % n; g.quadraticCurveTo(p[i], p[i + 1], (p[i] + p[j]) / 2, (p[i + 1] + p[j + 1]) / 2); }
+    g.closePath(); return;
+  }
+  g.moveTo(p[0], p[1]);
+  for (let i = 2; i < n - 2; i += 2) g.quadraticCurveTo(p[i], p[i + 1], (p[i] + p[i + 2]) / 2, (p[i + 1] + p[i + 3]) / 2);
+  g.lineTo(p[n - 2], p[n - 1]);
+}
 function drawSpectrum(P, VW, VH, dt){
   if (S.spec === 'kapali' || !S.spec) return;
-  const live = nowS() - SP.at < .5; let any = false;
-  for (let b = 0; b < SPN; b++){
-    // yüksek bantlar doğal olarak zayıf: her bant kısmen kendi tepesine, kısmen genel tepeye göre ölçeklenir; hızlı çıkar, yavaş iner
-    const tg = live ? Math.min(1, Math.pow(SP.raw[b] / (SP.bp[b] * .65 + SP.peak * .35), 1.3)) : 0;
-    SP.v[b] += (tg - SP.v[b]) * Math.min(1, dt * (tg > SP.v[b] ? 30 : 7));
-    SP.pk[b] = Math.max(SP.v[b], SP.pk[b] - dt * .35);
-    if (SP.pk[b] > .01) any = true;
+  if (!spStep(dt)) return;
+  const m = Math.min(VW, VH), k = S.specSize || 1, wide = VW >= VH;
+  const x0 = VW * (wide ? .15 : .07), w = VW - 2 * x0, y0 = VH - m * .05; // şarkı kartı (sol alt) ile durum yazısının (sağ alt) arası
+  const hair = Math.max(1, m * .0015), main = Math.max(1.5, m * .0027);
+  const ink = mixHex(P.bg, P.fg, .72), dim = mixHex(P.bg, P.fg, .2), acc = mixHex(P.bg, P.ac, .92);
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.lineCap = 'round'; g.lineJoin = 'round';
+  if (S.spec === 'izler'){
+    // üst üste dizili geçmiş çizgileri: öndeki şimdi, arkadakiler birer adım önce; her çizgi arkasındakini örter, eskidikçe solar ve daralır
+    const mid = SPN - 1, n = mid * 2 + 1, gap = m * .013 * k, amp = m * .075 * k, fr = SP.hAcc, rows = SP.hist.length, pts = new Array(n * 2);
+    for (let h = rows; h >= 0; h--){
+      const arr = h ? SP.hist[h - 1] : SP.s, age = h ? h - 1 + fr : 0, t = 1 - age / (SPH + 1); if (t <= 0) continue;
+      const ww = w * (1 - age * .03), xx = VW / 2 - ww / 2, yb = y0 - age * gap;
+      for (let i = 0; i < n; i++){ const u = i / (n - 1); pts[i * 2] = xx + ww * u; pts[i * 2 + 1] = yb - arr[Math.abs(i - mid)] * amp * Math.sin(Math.PI * u) * (1 - age * .04); }
+      g.globalCompositeOperation = 'destination-out'; g.beginPath(); spPath(pts); g.closePath(); g.fill();
+      g.globalCompositeOperation = 'source-over'; g.beginPath(); spPath(pts);
+      g.strokeStyle = mixHex(P.bg, P.fg, .06 + .66 * t * t); g.lineWidth = h ? hair : main; g.stroke();
+    }
+  } else if (S.spec === 'cetvel'){
+    // cetvel: sık ve çok ince çentikler (bas solda, tiz sağda); her on altıncısı uzun; zarf, çentiğin üstünde vurgu renginde kısa bir iz
+    const cnt = (SPN - 1) * 4 + 1, step = w / (cnt - 1), amp = m * .085 * k;
+    const len = i => m * (i % 16 ? .006 : .013) + spAt(SP.v, i / 4) * amp;
+    g.lineCap = 'butt'; g.lineWidth = hair;
+    g.beginPath(); for (let i = 0; i < cnt; i++){ const x = Math.round(x0 + i * step) + .5; g.moveTo(x, y0); g.lineTo(x, y0 - len(i)); } g.strokeStyle = ink; g.stroke();
+    g.beginPath();
+    for (let i = 0; i < cnt; i++){
+      const pk = spAt(SP.pk, i / 4); if (pk < spAt(SP.v, i / 4) + .05) continue;
+      const x = Math.round(x0 + i * step) + .5, y = y0 - m * .006 - pk * amp - m * .006; g.moveTo(x, y); g.lineTo(x, y - m * .004);
+    }
+    g.strokeStyle = acc; g.stroke();
+  } else if (S.spec === 'yarimton'){
+    // yarım ton baskı: sabit kafeste noktalar; ses noktaları yakmaz, büyütür — yukarı doğru küçülerek kaybolur
+    const cols = Math.max(24, Math.round(w / (m * .017))), st = w / cols, rows = Math.max(3, Math.round(7 * k));
+    g.beginPath();
+    for (let j = 0; j < rows; j++) for (let c = 0; c < cols - (j & 1); c++){
+      const u = (c + .5 + (j & 1) * .5) / cols, lv = spAt(SP.s, u * (SPN - 1)) * (rows + .6);
+      const r = st * .42 * Math.max(j ? 0 : .12, clamp((lv - j * .8) / (rows * .55), 0, 1)); if (r < .4) continue;
+      const x = x0 + u * w, y = y0 - st * .5 - j * st * .87; g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832);
+    }
+    g.fillStyle = mixHex(P.bg, P.fg, .6); g.fill();
+  } else if (S.spec === 'halka'){
+    // titreşen halka: ekranın ortasında, yazının (ya da saatin) çevresinde tek ince çizgi; bas tepede, iki yana aynalı;
+    // içinde sabit silik bir daire, dışında vurgu renginde zarf
+    const cx = VW / 2, cy = VH / 2, R = m * .37, amp = m * .06 * k, cnt = SPN * 2 - 2, a = new Array(cnt * 2), b = new Array(cnt * 2);
+    for (let i = 0; i < cnt; i++){
+      const bi = i < SPN ? i : cnt - i, q = -1.5708 + i / cnt * 6.2832, c = Math.cos(q), s = Math.sin(q);
+      const r1 = R + SP.s[bi] * amp, r2 = R + SP.pk[bi] * amp + m * .008;
+      a[i * 2] = cx + c * r1; a[i * 2 + 1] = cy + s * r1; b[i * 2] = cx + c * r2; b[i * 2 + 1] = cy + s * r2;
+    }
+    g.beginPath(); g.arc(cx, cy, R - m * .012, 0, 6.2832); g.strokeStyle = dim; g.lineWidth = hair; g.stroke();
+    g.beginPath(); spPath(b, true); g.strokeStyle = acc; g.lineWidth = hair; g.stroke();
+    g.beginPath(); spPath(a, true); g.strokeStyle = ink; g.lineWidth = main; g.stroke();
+  } else {
+    // tel: gergin tek çizgi (bas solda, tiz sağda), uçları sabit; üstünde vurgu renginde ince zarf, en güçlü sesin üstünde tek nokta
+    const amp = m * .13 * k, a = new Array(SPN * 2), b = new Array(SPN * 2), win = u => Math.pow(Math.sin(Math.PI * u), .6);
+    for (let i = 0; i < SPN; i++){ const u = i / (SPN - 1), x = x0 + w * u, wn = win(u); a[i * 2] = b[i * 2] = x; a[i * 2 + 1] = y0 - SP.s[i] * amp * wn; b[i * 2 + 1] = y0 - SP.pk[i] * amp * wn; }
+    g.beginPath(); g.moveTo(x0, y0 + .5); g.lineTo(x0 + w, y0 + .5); g.strokeStyle = dim; g.lineWidth = hair; g.stroke();
+    g.beginPath(); spPath(b); g.strokeStyle = acc; g.lineWidth = hair; g.stroke();
+    g.beginPath(); spPath(a); g.strokeStyle = ink; g.lineWidth = main; g.stroke();
+    const du = clamp(SP.dom / (SPN - 1), 0, 1), dv = spAt(SP.s, SP.dom);
+    if (dv > .08){ g.beginPath(); g.arc(x0 + w * du, y0 - dv * amp * win(du), m * .0055, 0, 6.2832); g.fillStyle = acc; g.fill(); }
   }
-  if (!any) return;
-  const m = Math.min(VW, VH), wAll = Math.min(VW * .5, m * .9), base = VH - m * .022, hMax = m * .075;
-  const body = mixHex(P.bg, P.fg, .34);
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
-  if (S.spec === 'dalga'){
-    // iki yana aynalı yumuşak eğri; altı düz renkle dolu, üst çizgisi vurgu renginde
-    const pts = []; for (let i = -SPN + 1; i < SPN; i++){ const b = Math.abs(i); pts.push([VW / 2 + i / (SPN - 1) * wAll / 2, base - Math.max(m * .002, SP.v[b] * hMax)]); }
-    const path = () => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length - 1; i++){ const p = pts[i], q = pts[i + 1]; g.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2); } g.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); };
-    path(); g.lineTo(pts[pts.length - 1][0], base); g.lineTo(pts[0][0], base); g.closePath(); g.fillStyle = mixHex(P.bg, P.fg, .12); g.fill();
-    path(); g.strokeStyle = mixHex(P.bg, P.ac, .85); g.lineWidth = Math.max(1.5, m * .003); g.lineJoin = 'round'; g.stroke();
-    return;
-  }
-  const n = SPN * 2, step = wAll / n, bw = Math.max(1, step * .62), th = Math.max(1, m * .0025);
-  for (let i = 0; i < n; i++){
-    const b = i < SPN ? SPN - 1 - i : i - SPN, x = VW / 2 - wAll / 2 + i * step + (step - bw) / 2;
-    const h = Math.max(th, SP.v[b] * hMax);
-    g.fillStyle = body; g.fillRect(x, base - h, bw, h);
-    if (SP.pk[b] > SP.v[b] + .02){ g.fillStyle = P.ac; g.fillRect(x, base - SP.pk[b] * hMax - th, bw, th); }
-  }
+  g.restore();
 }
 
 /* ---------- albüm kapağından arka plan (arka plan türü 'kapak') ----------
@@ -3900,7 +4108,8 @@ window.wallpaperPropertyListener = {
       const was = S.ai; S.ai = !!p.yapayzeka.value;
       if (S.ai && !was && WS_LAST && WS_LAST.key === M.key) wordSync(WS_LAST.key, WS_LAST.src, WS_LAST.timed); // çalan şarkı için hemen başla
     }
-    if (p.spektrum) S.spec = p.spektrum.value || 'kapali';
+    if (p.spektrum){ const v = p.spektrum.value || 'kapali'; S.spec = v === 'kapali' || SPK.includes(v) ? v : 'tel'; } // eski türler (çubuk, dalga…) tele düşer
+    if (p.spektrumboy) S.specSize = clamp(+p.spektrumboy.value / 100, .4, 2.5);
     if (p.plak) S.record = !!p.plak.value;
     if (p.tani) S.diag = !!p.tani.value;
     if (p.ceviri){ const was = S.translate; S.translate = !!p.ceviri.value; if (S.translate && !was && mode === 'lyrics' && M.key) loadTranslation(M.key); }

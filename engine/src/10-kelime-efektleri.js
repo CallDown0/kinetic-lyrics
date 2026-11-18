@@ -242,8 +242,8 @@ function drawDots(P, kick){
   for (const s of DOTS){
     const p = [e[0] + ((s[0] - e[0]) % B + B * 1.5) % B - B / 2, e[1] + ((s[1] - e[1]) % B + B * 1.5) % B - B / 2, s[2]];
     const q = proj(p); if (!q) continue;
-    const r = Math.max(1, 1600 / q[2] * (1 + kick * .5)) * cv.height / 1080;
-    g.globalAlpha = .1 + kick * .06; g.fillRect(q[0] - r, q[1] - r, r * 2, r * 2);
+    const nr = mouseNear(q[0], q[1], cv.height * .22), r = Math.max(1, 1600 / q[2] * (1 + kick * .5)) * cv.height / 1080 * (1 + nr * 2.2); // imlecin çevresinde büyür
+    g.globalAlpha = .1 + kick * .06 + nr * .3; g.fillRect(q[0] - r, q[1] - r, r * 2, r * 2);
   }
 }
 
