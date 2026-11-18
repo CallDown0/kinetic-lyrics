@@ -4,9 +4,9 @@
 // Yeniden üretmek için: npm run paket  (sonra three.bundle.js'i duvar kâğıdı klasörüne kopyala)
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, ClearPass, EffectPass, Effect, EffectAttribute, BlendFunction,
-  ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect } from 'postprocessing';
+  ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect, BloomEffect } from 'postprocessing';
 import { Text, preloadFont } from 'troika-three-text';
 window.THREE = THREE;
 window.PP = { EffectComposer, RenderPass, ClearPass, EffectPass, Effect, EffectAttribute, BlendFunction,
-  ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect };
+  ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect, BloomEffect };
 window.TT = { Text, preloadFont };

@@ -36,6 +36,12 @@ function render(T, dt){
   // nakarat girişi: kısa vurgu rengi parlaması
   if (!S.wipe && cb && cb.chorus && mode === 'lyrics' && !(blocks[li - 1] && blocks[li - 1].chorus)){ const x = T - cb.t0; if (x >= 0 && x < .3) flash = Math.max(flash, (1 - x / .3) * .7); }
   if (flash){ g.globalAlpha = flash * .45; g.fillStyle = P.ac; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
+  // vuruş ışığı: güçlü vuruşta ekran kenarlarından içeri vurgu renginde kısa ışık (ortası boş: yazı etkilenmez)
+  if (S.beatflash && !REDUCED && L.beat > .06 && /^#[0-9a-f]{6}$/i.test(P.ac)){
+    const gr = g.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * .42, VW / 2, VH / 2, Math.hypot(VW, VH) * .56);
+    gr.addColorStop(0, P.ac + '00'); gr.addColorStop(1, P.ac + 'ff');
+    g.globalAlpha = Math.min(.3, L.beat * (.1 + .22 * e)); g.fillStyle = gr; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1;
+  }
   L.beat *= Math.exp(-dt * 7);
   // nefes: vokal bölgesi (orta) + bas; hızlı yükselir, yavaş iner
   { const tg = clamp(L.mid * .55 + L.low * .45, 0, 1); BRE += (tg - BRE) * Math.min(1, dt * (tg > BRE ? 14 : 5)); }

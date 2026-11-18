@@ -33,11 +33,12 @@ window.wallpaperPropertyListener = {
     // arka plan: 3D sahneler ve 2D efektler tek listede; Otomatik her şarkıda birini seçer
     if (p.arkaplan){ const v = p.arkaplan.value || 'oto'; S.bg3 = v === 'oto' ? 'oto' : v.startsWith('3d-') ? v.slice(3) : 'kapali'; S.bg = v.startsWith('3d-') ? 'yok' : v; BR.list.length = 0; BR.key = null; }
     // gruplu düğmeler: her biri birbirine yakın birkaç efekti birlikte açıp kapatır
-    if (p.muzik){ S.freq = S.breath = S.beatcut = S.rap = !!p.muzik.value; lay = true; }
+    if (p.muzik){ S.freq = S.breath = S.beatcut = S.rap = S.beatflash = !!p.muzik.value; lay = true; }
     if (p.anlam){ S.semantic = S.icons = S.hold = !!p.anlam.value; }
     if (p.sahnefx){ S.wipe = S.split = S.poster = !!p.sahnefx.value; lastBg = ''; if (!S.split) SPL = null; }
     if (p.parcacik) S.particles = !!p.parcacik.value;
     if (p.sinema) S.cine = !!p.sinema.value;
+    if (p.parlama) S.bloom = !!p.parlama.value;
     if (p.sinemasiddet) S.cineAmt = p.sinemasiddet.value / 100;
     if (p.buyukharf){ S.upper = !!p.buyukharf.value; lay = true; }
     if (p.takip) S.move = p.takip.value / 100;

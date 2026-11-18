@@ -24,8 +24,9 @@ const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, 
   // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
   // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
   // spec: ses spektrumu (kapali | cubuk | dalga); record: şarkı kartındaki kapak plak gibi döner
-  ai:true, diag:false, spec:'cubuk', record:true };
-if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.shake = 0;
+  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true };
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (REDUCED) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
 const up = s => S.upper ? s.toLocaleUpperCase(UPL) : s;
 // Türkçeye özgü harf yoksa ve İngilizce sık kelimeler varsa İngilizce say
@@ -2672,11 +2673,12 @@ const mlSem = raw => { if (!MLS) MLS = mlPrep(ML_SEM); return mlFind(raw, MLS); 
 /* ---------- 3D arka plan ve sinema efektleri (three.js + postprocessing; WebGL tuvali #bg3) ---------- */
 // Sözler 2D tuvalde kalır. 3D açıkken 2D tuval zemini boyamaz (şeffaf), 2D arka plan efektleri ve nokta dokusu çizilmez.
 // Saat ekranı opak olduğu için orada 3D hiç çizilmez. Sahneler tamamen shader'da (kare başına birkaç çizim çağrısı):
-// parcacik (kollarıyla dönen galaksi), zemin (müzikle kabaran tel kafes arazi).
+// parcacik (kollarıyla dönen galaksi), zemin (müzikle kabaran tel kafes arazi), tunel (içinden geçilen ızgara tünel),
+// su (dalgalanan deniz yüzeyi), bulut (kubbede süzülen bulutlar).
 // Renkler zemine karıştırılır ki yazı okunur kalsın; bas, enerji ve vuruşa tepki verir. Kamera, sözlerin kamerasının
 // yönelimini kısılmış ve yumuşatılmış olarak izler: yazı dönerken arka plan da onunla döner.
 const B3 = {tried: false, ok: false, want: false, shown: false, kind: '', key: null, prevKind: '', off: 0, bgCol: '#000000'};
-const BG3_KINDS = ['parcacik', 'zemin'];
+const BG3_KINDS = ['parcacik', 'zemin', 'tunel', 'su', 'bulut'];
 const B3_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
@@ -2705,7 +2707,7 @@ function bg3Init(){
   B3.q = new T3.Quaternion(); B3.qt = new T3.Quaternion(); B3.q0 = new T3.Quaternion(); B3.m = new T3.Matrix4();
   B3.qp = new T3.Quaternion(); B3.ax = new T3.Vector3(1, 0, 0);
   B3.v = [new T3.Vector3(), new T3.Vector3(), new T3.Vector3()];
-  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3)};
+  B3.objs = {parcacik: b3Galaxy(T3), zemin: b3Terrain(T3), tunel: b3Tunnel(T3), su: b3Water(T3), bulut: b3Clouds(T3)};
   for (const k in B3.objs) B3.scene.add(B3.objs[k]);
   // shader'lar açılışta derlenir (sahne ilk göründüğü karede derlenince takılma oluyordu)
   try { B3.r.compile(B3.scene, B3.cam); } catch(_){}
@@ -2784,6 +2786,65 @@ function b3Lost(lost){
   CHS = {}; // nakarat satırına atanmış 3D stil kalmasın
   if (mode === 'lyrics' && words.length) relayout();
 }
+// tünel: kamera ekseninde akan ızgara boru; her sekizinci halka vurgu renginde, basla nefes alır
+function b3Tunnel(T3){
+  const geo = new T3.CylinderGeometry(16, 16, 320, 48, 1, true); geo.rotateX(Math.PI / 2);
+  const mat = new T3.ShaderMaterial({uniforms: B3.u, side: T3.BackSide,
+    vertexShader: `uniform float uBass; varying vec2 vU; varying float vD;
+      void main(){
+        vU = uv; vec3 p = position; p.xy *= 1. + uBass * .1 * sin(p.z * .11);
+        vec4 mv = modelViewMatrix * vec4(p, 1.); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uBg, uFg, uAc; uniform float uOff, uBeat; varying vec2 vU; varying float vD;
+      void main(){
+        vec2 g = vec2(vU.x * 24., vU.y * 40. + uOff / 8.), a = abs(fract(g - .5) - .5) / fwidth(g);
+        float line = 1. - min(min(a.x, a.y) * .6, 1.), ring = 1. - min(a.y * .3, 1.);
+        float acc = step(mod(floor(g.y + .5), 8.), .5) * ring;
+        float fog = smoothstep(150., 6., vD);
+        vec3 c = mix(uBg, uFg, line * fog * (.8 + uBeat * .2));
+        gl_FragColor = vec4(mix(c, uAc, acc * fog), 1.); }`});
+  const m = new T3.Mesh(geo, mat); m.position.z = -150; m.frustumCulled = false;
+  return m;
+}
+
+// deniz: kameraya doğru akan dalgalar; yatay tarama çizgileri, dalga tepeleri vurgu renginde, basla kabarır
+function b3Water(T3){
+  const geo = new T3.PlaneGeometry(240, 240, 180, 180); geo.rotateX(-Math.PI / 2);
+  const mat = new T3.ShaderMaterial({uniforms: B3.u,
+    vertexShader: B3_NOISE + `uniform float uOff, uBass, uE; varying vec2 vG; varying float vD, vH;
+      void main(){
+        vec3 p = position; vec2 w = vec2(p.x, p.z - uOff);
+        float h = sin(w.y * .16 + w.x * .04) * 1.1 + sin(w.y * .31 - w.x * .13) * .55
+          + (fbm(w * .07) - .5) * (2.5 + uBass * 7. + uE * 2.5);
+        p.y += h; vG = w; vH = h;
+        vec4 mv = modelViewMatrix * vec4(p, 1.); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uBg, uFg, uAc; uniform float uBeat; varying vec2 vG; varying float vD, vH;
+      void main(){
+        float g = vG.y / 1.7, a = abs(fract(g - .5) - .5) / fwidth(g);
+        float line = 1. - min(a * .6, 1.), fog = smoothstep(110., 10., vD);
+        float crest = smoothstep(.7, 2.4, vH);
+        vec3 lc = mix(uFg, uAc, crest);
+        vec3 c = mix(uBg, lc, line * fog * (.65 + crest * .35));
+        gl_FragColor = vec4(mix(c, lc, (.05 + crest * .22 + uBeat * .05) * fog), 1.); }`});
+  const m = new T3.Mesh(geo, mat); m.position.y = -5; m.frustumCulled = false;
+  return m;
+}
+
+// bulutlar: kamerayı saran kubbede iki katman süzülen gürültü; yoğun yerler vurgu rengine çalar
+function b3Clouds(T3){
+  const mat = new T3.ShaderMaterial({uniforms: B3.u, side: T3.BackSide, depthWrite: false,
+    vertexShader: `varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+    fragmentShader: B3_NOISE + `uniform vec3 uBg, uFg, uAc; uniform float uOff, uBass, uBeat; varying vec3 vP;
+      void main(){
+        vec3 d = normalize(vP);
+        vec2 q = d.xy / (abs(d.z) * .6 + .5) * 1.7;
+        float n = fbm(q + vec2(uOff * .05, uOff * .012)), n2 = fbm(q * 2.3 - vec2(uOff * .08, 0.) + 7.3);
+        float cl = smoothstep(.34, .78, n * .7 + n2 * .3);
+        vec3 c = mix(uBg, uFg, cl * (.55 + uBass * .2));
+        gl_FragColor = vec4(mix(c, uAc, smoothstep(.45, .85, n2) * cl * (.6 + uBeat * .3)), 1.); }`});
+  const m = new T3.Mesh(new T3.SphereGeometry(220, 40, 20), mat); m.frustumCulled = false;
+  return m;
+}
+
 // render() karede bir kez sorar: 3D arka plan bu karede çizilecek mi (saat ekranında değil, ayar açık, WebGL var)
 // arka plan 'Otomatik' ise her şarkıda yarı yarıya 3D sahne ya da 2D efekt
 function bg3Want(){
@@ -2806,7 +2867,7 @@ function bg3Update(T, dt){
   B3.tBg.set(B3.bgCol); B3.tFg.set(mixHex(P.bg, P.fg, .55)); B3.tAc.set(mixHex(P.bg, P.ac, .8));
   const U = B3.u, e = energy(), bass = clamp(L.low, 0, 1.5) / 1.5;
   U.uBg.value.lerp(B3.tBg, kc); U.uFg.value.lerp(B3.tFg, kc); U.uAc.value.lerp(B3.tAc, kc);
-  B3.off += dt * (k === 'parcacik' ? 1.2 + 2.5 * e : 5 + 16 * e) * (M.playing === false ? .25 : 1);
+  B3.off += dt * (k === 'parcacik' ? 1.2 + 2.5 * e : k === 'bulut' ? 1 + 2 * e : k === 'tunel' ? 9 + 24 * e : 5 + 16 * e) * (M.playing === false ? .25 : 1);
   U.uT.value = T; U.uOff.value = B3.off; U.uE.value += (e - U.uE.value) * kc;
   U.uBass.value += (bass - U.uBass.value) * Math.min(1, dt * (bass > U.uBass.value ? 14 : 4));
   U.uBeat.value = L.beat; U.uPx.value = cv.height / 1080;
@@ -2816,10 +2877,10 @@ function bg3Update(T, dt){
     v[0].set(rt[0], -rt[1], -rt[2]); v[1].set(up[0], -up[1], -up[2]); v[2].set(-f[0], f[1], f[2]);
     B3.qt.setFromRotationMatrix(B3.m.makeBasis(v[0], v[1], v[2])); B3.qt.slerpQuaternions(B3.q0, B3.qt, .55);
   }
-  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' ? -.1 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
+  B3.qp.setFromAxisAngle(B3.ax, k === 'zemin' ? -.1 : k === 'su' ? -.13 : k === 'parcacik' ? -.05 : 0); B3.qt.multiply(B3.qp);
   if (snapCam) B3.q.copy(B3.qt); else B3.q.slerp(B3.qt, 1 - Math.exp(-dt * 3.5));
   B3.cam.quaternion.copy(B3.q);
-  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' ? 1.2 : 0), 0);
+  B3.cam.position.set(Math.sin(T * .13) * .8, Math.sin(T * .17) * .4 + (k === 'zemin' || k === 'su' ? 1.2 : 0), 0);
 }
 
 /* ---------- sinema efektleri (ayar sinema + sinemasiddet) ----------
@@ -2845,7 +2906,9 @@ function fxInit(T3){
         vec4 c = vec4(0.);
         for (int i = 0; i < 9; i++) c += texture2D(inputBuffer, uv + dir * (float(i) / 8. - .5));
         outputColor = c / 9.; }`, {attributes: PP.EffectAttribute.CONVOLUTION, uniforms: new Map([['dir', new T3.Uniform(new T3.Vector2())]])});
-    for (const p of [B3.p3, B3.pov, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) C.addPass(p);
+    // parlama (ayar parlama): yalnız koyu zeminde, parlak yazı ve vurgu ışık halesi verir; kapalıyken geçidi de kapalı (GPU harcamaz)
+    if (PP.BloomEffect){ B3.bloom = new PP.BloomEffect({intensity: 0, luminanceThreshold: .62, luminanceSmoothing: .25, mipmapBlur: true, radius: .7}); B3.pbloom = new PP.EffectPass(B3.cam, B3.bloom); B3.pbloom.enabled = false; }
+    for (const p of [B3.p3, B3.pov, B3.pbloom, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) if (p) C.addPass(p);
   } catch(e){ diag('fx', {m: String(e && e.message).slice(0, 160)}); return false; }
   return true;
 }
@@ -2858,6 +2921,11 @@ function fxUpdate(T, dt){
   const a = S.cine ? S.cineAmt : 0, cb = blocks[curLine], kick = clamp((L.low - L.lowSlow) * 2.4, 0, 1);
   const co = (L.beat * .006 + kick * .0025) * a; B3.chroma.offset.set(co, co * .5);
   B3.noise.blendMode.opacity.value = .12 * a; B3.vig.darkness = .5 * a;
+  if (B3.bloom){
+    const bg = pre().bg, tg = S.bloom && /^#[0-9a-f]{6}$/i.test(bg) && lum(bg) < .1 ? .55 + L.beat * .45 : 0;
+    B3.bloomI = (B3.bloomI || 0) + (tg - (B3.bloomI || 0)) * Math.min(1, dt * 4);
+    B3.bloom.intensity = B3.bloomI; B3.pbloom.enabled = B3.bloomI > .02;
+  }
   // şok dalgası: büyük düşüş ya da nakarata giriş
   const dr = L.drops.length ? L.drops[L.drops.length - 1] : null;
   if (dr !== B3.drSeen){ B3.drSeen = dr; if (dr != null && Math.abs(T - dr) < .5) fxWave(); }
@@ -2939,6 +3007,12 @@ function render(T, dt){
   // nakarat girişi: kısa vurgu rengi parlaması
   if (!S.wipe && cb && cb.chorus && mode === 'lyrics' && !(blocks[li - 1] && blocks[li - 1].chorus)){ const x = T - cb.t0; if (x >= 0 && x < .3) flash = Math.max(flash, (1 - x / .3) * .7); }
   if (flash){ g.globalAlpha = flash * .45; g.fillStyle = P.ac; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1; }
+  // vuruş ışığı: güçlü vuruşta ekran kenarlarından içeri vurgu renginde kısa ışık (ortası boş: yazı etkilenmez)
+  if (S.beatflash && !REDUCED && L.beat > .06 && /^#[0-9a-f]{6}$/i.test(P.ac)){
+    const gr = g.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * .42, VW / 2, VH / 2, Math.hypot(VW, VH) * .56);
+    gr.addColorStop(0, P.ac + '00'); gr.addColorStop(1, P.ac + 'ff');
+    g.globalAlpha = Math.min(.3, L.beat * (.1 + .22 * e)); g.fillStyle = gr; g.fillRect(0, 0, VW, VH); g.globalAlpha = 1;
+  }
   L.beat *= Math.exp(-dt * 7);
   // nefes: vokal bölgesi (orta) + bas; hızlı yükselir, yavaş iner
   { const tg = clamp(L.mid * .55 + L.low * .45, 0, 1); BRE += (tg - BRE) * Math.min(1, dt * (tg > BRE ? 14 : 5)); }
@@ -3443,11 +3517,12 @@ window.wallpaperPropertyListener = {
     // arka plan: 3D sahneler ve 2D efektler tek listede; Otomatik her şarkıda birini seçer
     if (p.arkaplan){ const v = p.arkaplan.value || 'oto'; S.bg3 = v === 'oto' ? 'oto' : v.startsWith('3d-') ? v.slice(3) : 'kapali'; S.bg = v.startsWith('3d-') ? 'yok' : v; BR.list.length = 0; BR.key = null; }
     // gruplu düğmeler: her biri birbirine yakın birkaç efekti birlikte açıp kapatır
-    if (p.muzik){ S.freq = S.breath = S.beatcut = S.rap = !!p.muzik.value; lay = true; }
+    if (p.muzik){ S.freq = S.breath = S.beatcut = S.rap = S.beatflash = !!p.muzik.value; lay = true; }
     if (p.anlam){ S.semantic = S.icons = S.hold = !!p.anlam.value; }
     if (p.sahnefx){ S.wipe = S.split = S.poster = !!p.sahnefx.value; lastBg = ''; if (!S.split) SPL = null; }
     if (p.parcacik) S.particles = !!p.parcacik.value;
     if (p.sinema) S.cine = !!p.sinema.value;
+    if (p.parlama) S.bloom = !!p.parlama.value;
     if (p.sinemasiddet) S.cineAmt = p.sinemasiddet.value / 100;
     if (p.buyukharf){ S.upper = !!p.buyukharf.value; lay = true; }
     if (p.takip) S.move = p.takip.value / 100;

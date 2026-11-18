@@ -3,6 +3,12 @@
 	"file": "index.html",
 	"general": {
 		"properties": {
+			"parlama": {
+				"order": 234,
+				"text": "Parlama (koyu temalarda ışık halesi)",
+				"type": "bool",
+				"value": true
+			},
 			"spektrum": {
 				"order": 245,
 				"text": "Ses spektrumu",
@@ -166,6 +172,18 @@
 						"value": "3d-zemin"
 					},
 					{
+						"label": "3D Tünel",
+						"value": "3d-tunel"
+					},
+					{
+						"label": "3D Deniz",
+						"value": "3d-su"
+					},
+					{
+						"label": "3D Bulutlar",
+						"value": "3d-bulut"
+					},
+					{
 						"label": "Albüm kapağı (bulanık)",
 						"value": "kapak"
 					},
@@ -267,7 +285,7 @@
 			},
 			"muzik": {
 				"order": 210,
-				"text": "Müziğe tepki (bas, vuruş, nefes, hızlı satır)",
+				"text": "Müziğe tepki (bas, vuruş, nefes, hızlı satır, vuruş ışığı)",
 				"type": "bool",
 				"value": true
 			},
