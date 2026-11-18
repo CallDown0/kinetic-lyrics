@@ -1,0 +1,1 @@
+{"name":"kk-duman-testi","private":true,"version":"1.0.0","scripts":{"test":"node test.js"},"devDependencies":{"playwright":"^1.50.0"}}

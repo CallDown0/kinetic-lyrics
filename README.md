@@ -68,6 +68,7 @@ wallpaper/       Wallpaper Engine sürümü + ortak motor dosyaları (kinetik.js
 web/             tarayıcı oynatıcısı: Wallpaper Engine API'lerini taklit eden player.js + arayüz
 server/          kinetic_server.py: oynatıcıyı sunar, YouTube/dosya, kelime senkronu, izleme paneli
 tools/           three.bundle.js ve fonts.js'i yeniden üretmek için (npm run paket / npm run fontlar)
+tools/duman-testi/  duvar kâğıdının otomatik testi (başsız tarayıcıda sahte şarkı): npm install && npx playwright install chromium && npm test
 data/            (oluşur) indirilen sesler, senkron sonuçları, sunucu kaydı
 ```
 
