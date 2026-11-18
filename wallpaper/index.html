@@ -16,6 +16,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0E0F12}
 #info{position:fixed;left:var(--gut);bottom:var(--lift);display:flex;align-items:center;gap:calc(var(--u)*1.3);max-width:min(calc(var(--u)*48),62vw);font-family:"Martian Mono",Consolas,monospace;pointer-events:none}
 #art{width:calc(var(--u)*5.2);height:calc(var(--u)*5.2);border-radius:calc(var(--u)*.4);object-fit:cover;flex:none;box-shadow:0 2px 12px rgba(0,0,0,.25)}
 #info div{min-width:0}
+/* dönen kapak (ayar plak): duraklatınca durur */
+#art.plak{border-radius:50%;animation:kkspin 9s linear infinite}
+#art.plak.dur{animation-play-state:paused}
+@keyframes kkspin{to{transform:rotate(360deg)}}
+/* ilerleme çizgisi: şarkının neresindeyiz */
+#info>div{min-width:calc(var(--u)*14)}
+#pg{height:max(2px,calc(var(--u)*.2));margin-top:calc(var(--u)*.75);background:color-mix(in srgb,currentColor 22%,transparent)}
+#pgi{display:block;height:100%;width:0;background:currentColor;transition:width .5s linear}
 #ti{font-size:calc(var(--u)*1.3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #ar{font-size:calc(var(--u)*1.1);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:calc(var(--u)*.3)}
 #st{position:fixed;right:var(--gut);bottom:var(--lift);max-width:40vw;font-family:"Martian Mono",Consolas,monospace;font-size:var(--u);opacity:.65;text-align:right;pointer-events:none}
@@ -29,7 +37,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0E0F12}
 <body>
 <canvas id="bg3" hidden></canvas>
 <canvas id="cv"></canvas>
-<div id="info" hidden><img id="art" alt=""><div><div id="ti"></div><div id="ar"></div></div></div>
+<div id="info" hidden><img id="art" alt=""><div><div id="ti"></div><div id="ar"></div><div id="pg" hidden><i id="pgi"></i></div></div></div>
 <div id="st" hidden></div>
 <script src="gsap.min.js"></script>
 <script src="three.bundle.js"></script>

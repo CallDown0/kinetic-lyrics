@@ -56,6 +56,7 @@ function render(T, dt){
   SX = noise1(T * 11) * amp; SY = noise1(T * 13 + 5) * amp;
   const Pd = fgSwap ? {bg: P.ac, fg: P.bg, ac: P.bg} : P;
   if (!B3.want){ drawBackground(T, dt, Pd, VW, VH, li, cb, e); drawDots(fgSwap ? {fg: P.bg} : P, kick); }
+  drawSpectrum(Pd, VW, VH, dt);
   // destek efektleri: yeni kelimede parçacık patlaması, vuruşta kıvılcım (yılan çizgiler denendi, kullanıcı beğenmedi)
   if (aw && aw.idx !== FX.last){ FX.last = aw.idx; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && T - aw.t < .4) fxWord(b, aw, e); }
   if (aw && L.beatN !== FX.beatN){ FX.beatN = L.beatN; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && S.particles) burst(b, aw, 4 + Math.round(8 * e), .5); }
@@ -128,7 +129,7 @@ function render(T, dt){
 // izgara (kayan ızgara), serit (kayan çapraz şeritler). Otomatikte her şarkıda biri rastgele seçilir.
 // Saydamlık yok: soluk görünmesi gerekenler zemin ile yazı renginin karışımı olan düz renkle çizilir; kaybolurken
 // incelir/küçülür/geri çekilir.
-const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit'];
+const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit', 'kapak'];
 const BR = {list: [], timer: .5, lastLi: -1, kind: '', key: null, beatN: 0, t: 0};
 function mixHex(a, b, t){
   const p = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -154,7 +155,7 @@ function bgKind(){
   if (S.bg !== 'oto') return S.bg;
   // otomatik: şarkı değişince rastgele yeni tür (bir önceki şarkınınkinden farklı)
   if (BR.key !== M.key){ BR.key = M.key; const c = BG_KINDS.filter(k => k !== BR.kind); BR.kind = c[Math.floor(Math.random() * c.length)]; BR.list.length = 0; BR.timer = .3; }
-  return BR.kind;
+  return BR.kind === 'kapak' && !M.thumb ? 'sekil' : BR.kind; // otomatikte kapak seçildi ama resim yok
 }
 
 /* çizgi: kenar şeritlerinde kıvrımlı, kalınlığı incelip kalınlaşan düz çizgi; baştan çizilir, sonda geri çekilir */

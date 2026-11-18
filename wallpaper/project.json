@@ -3,6 +3,32 @@
 	"file": "index.html",
 	"general": {
 		"properties": {
+			"spektrum": {
+				"order": 245,
+				"text": "Ses spektrumu",
+				"type": "combo",
+				"value": "cubuk",
+				"options": [
+					{
+						"label": "Kapalı",
+						"value": "kapali"
+					},
+					{
+						"label": "Çubuklar",
+						"value": "cubuk"
+					},
+					{
+						"label": "Dalga",
+						"value": "dalga"
+					}
+				]
+			},
+			"plak": {
+				"order": 415,
+				"text": "Kartta kapak plak gibi dönsün",
+				"type": "bool",
+				"value": true
+			},
 			"tani": {
 				"order": 530,
 				"text": "Tanı kayıtları (sorun ararken aç)",
@@ -138,6 +164,10 @@
 					{
 						"label": "3D Arazi",
 						"value": "3d-zemin"
+					},
+					{
+						"label": "Albüm kapağı (bulanık)",
+						"value": "kapak"
 					},
 					{
 						"label": "Çizgiler",

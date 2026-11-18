@@ -43,6 +43,7 @@ function drawIdleClock(T, dt, P, VW, VH){
     else { g.strokeStyle = col; g.lineWidth = Math.max(2, sz * .18); g.stroke(); }
     g.restore();
   }
+  drawSpectrum(P, VW, VH, dt);
   // sabit saat: ortada, dakika değişince yalnız rakam değişir; iki nokta saniyede bir yumuşak söner
   const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
   const big = fontStr(false).replace('100px', '1px'), small = fontStr(true).replace('100px', '1px');
@@ -71,6 +72,7 @@ function drawIdleClock(T, dt, P, VW, VH){
 
 function drawBackground(T, dt, P, VW, VH, li, cb, e){
   const kind = bgKind(); if (kind === 'yok') return;
+  if (kind === 'kapak'){ drawCover(T, P, VW, VH); return; }
   BR.t += dt * (1 + e * 1.5);
   const m = Math.min(VW, VH), holes = []; for (const b of [blocks[li - 1], cb]) if (b) holes.push(...wordHoles(b, .28));
   const beat = L.beatN !== BR.beatN; BR.beatN = L.beatN;

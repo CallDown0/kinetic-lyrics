@@ -4,6 +4,7 @@ const L = { low:0, mid:0, high:0, lowSlow:0, intensity:0, pLo:.05, pMi:.05, pHi:
   lastOn:-9, ivs:[], bpm:120, drops:[], hist:[], lastDrop:-99, onset:false, packets:0, beat:0 };
 function onAudio(a){
   const t = nowS(); L.packets++;
+  spAudio(a);
   let lo = 0, mi = 0, hi = 0;
   for (let i = 0; i < 64; i++){
     const v = Math.min(1, ((a[i] || 0) + (a[i + 64] || 0)) / 2);

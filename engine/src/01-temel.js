@@ -16,7 +16,8 @@ const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, 
   exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6,
   // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
   // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
-  ai:true, diag:false };
+  // spec: ses spektrumu (kapali | cubuk | dalga); record: şarkı kartındaki kapak plak gibi döner
+  ai:true, diag:false, spec:'cubuk', record:true };
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
 const up = s => S.upper ? s.toLocaleUpperCase(UPL) : s;
