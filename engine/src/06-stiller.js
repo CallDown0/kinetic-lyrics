@@ -139,9 +139,6 @@ const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'e
 const CHORUS_STYLES = ['dev', 'tekrar', 'serit', 'halka', 'donus', 'glitch', 'kesik', 'bukum', 'patlama', 'derin', 'esnek', 'dilim', 'neon', 'kilit', 'hiz', 'kup', 'koridor', 'sarmal', 'toplanma', 'yildiz'];
 let prevStyle = '', USE = {}, useKey = '', CHS = {}; // USE: şarkı boyunca stil kullanım sayıları, CHS: nakarat satırı → stil
 function chooseStyle(li, lw, isChorus){
-  // ayarlardan sabitlenen stil (test sayfası da window.__kk_force ile zorlayabilir)
-  const forced = window.__kk_force;
-  if (forced && STYLES[forced] && !(STYLES[forced].dom && !HAS_G3)) return forced;
   if (useKey !== M.key){ useKey = M.key; USE = {}; CHS = {}; } // yeni şarkıda sayaç sıfırlanır
   // rap modu: satırda kelimeler saniyede ~4'ten sık geliyorsa okunur kalsın diye tek tek sert kesme
   if (S.rap && mode !== 'idle' && lw.length >= 4){ const iv = (lw[lw.length - 1].t - lw[0].t) / (lw.length - 1); if (iv > 0 && iv < .24) return 'rap'; }

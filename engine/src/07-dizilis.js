@@ -353,11 +353,10 @@ function ensureBlock(li){
   if (style === 'sarmal') h = W * .45; // sarmal kendi tek sırasını kurar; satır sıralarının yüksekliği kamerayı gereksiz geri çekerdi
   if (style === 'tekrar'){ const ex = h * 1.3; lw.forEach(w => { w.y += ex; w.base += ex; }); h += 2 * ex; } // üst/alt konturlara yer
   lw.forEach(w => w.bi = li);
-  // her kelime farklı animasyon (ayar kelimekarma); stil elle sabitlendiyse o stil saf hâliyle oynar
-  const pinned = !!STYLES[window.__kk_force];
+  // her kelime farklı animasyon (ayar kelimekarma)
   lw.forEach(w => { w.anim = null; w.g3a = null; });
-  if (S.wordMix && !pinned && MIX.includes(style)){ const cp = catPool(), mix = cp && cp.some(k => MIX.includes(k)) ? MIX.filter(k => cp.includes(k)) : MIX; let pv = style; lw.forEach(w => { const c = mix.filter(k => k !== pv); w.anim = pv = c[Math.floor(rnd() * c.length)]; }); }
-  if (S.wordMix && !pinned && STYLES[style].dom && style !== 'kup' && style !== 'sarmal'){ let pv = ''; lw.forEach(w => { const c = G3ENTER.filter(k => k !== pv); w.g3a = pv = c[Math.floor(rnd() * c.length)]; }); }
+  if (S.wordMix && MIX.includes(style)){ const cp = catPool(), mix = cp && cp.some(k => MIX.includes(k)) ? MIX.filter(k => cp.includes(k)) : MIX; let pv = style; lw.forEach(w => { const c = mix.filter(k => k !== pv); w.anim = pv = c[Math.floor(rnd() * c.length)]; }); }
+  if (S.wordMix && STYLES[style].dom && style !== 'kup' && style !== 'sarmal'){ let pv = ''; lw.forEach(w => { const c = G3ENTER.filter(k => k !== pv); w.g3a = pv = c[Math.floor(rnd() * c.length)]; }); }
   // yön: düz ya da ±90° (klasik çevirme); hafif 3D eğim ve derinlik farkı
   let rot = 0;
   if (blocks[li - 1] && rnd() < S.rot * .55) rot = (rnd() < .5 ? -1 : 1) * Math.PI / 2;

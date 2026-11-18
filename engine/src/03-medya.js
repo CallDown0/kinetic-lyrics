@@ -1,6 +1,6 @@
 /* ================= Medya oturumu ================= */
 const MI = window.wallpaperMediaIntegration || {};
-const M = { enabled:null, title:'', artist:'', album:'', playing:false, pos:0, at:0, dur:0, lastRep:null, hasTl:false, thumb:'', key:'' };
+const M = { enabled:null, title:'', artist:'', playing:false, pos:0, at:0, dur:0, lastRep:null, hasTl:false, thumb:'', key:'' };
 const songT = () => M.pos + (M.playing ? nowS() - M.at : 0);
 const RZ = {at: -99, paused: false}; // son uykudan dönüş anı (bkz. resume)
 let idleT0 = nowS();
@@ -18,7 +18,6 @@ function diag(k, o){ DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +s
 function onProps(e){
   diag('pr', {ti: (e && e.title || '').slice(0, 30)});
   const title = (e && e.title) || '', artist = (e && e.artist) || '';
-  M.album = (e && e.albumTitle) || '';
   const key = artist + '\u0001' + title;
   if (key === M.key) return;
   // yeni şarkı: renkler/tema değişir. Saat ekranındaysak arama bitene dek saat eski renklerinde kalır (CLK_HOLD),

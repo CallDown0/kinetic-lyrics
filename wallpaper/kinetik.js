@@ -98,7 +98,7 @@ function onAudio(a){
 // ===== src/03-medya.js =====
 /* ================= Medya oturumu ================= */
 const MI = window.wallpaperMediaIntegration || {};
-const M = { enabled:null, title:'', artist:'', album:'', playing:false, pos:0, at:0, dur:0, lastRep:null, hasTl:false, thumb:'', key:'' };
+const M = { enabled:null, title:'', artist:'', playing:false, pos:0, at:0, dur:0, lastRep:null, hasTl:false, thumb:'', key:'' };
 const songT = () => M.pos + (M.playing ? nowS() - M.at : 0);
 const RZ = {at: -99, paused: false}; // son uykudan dönüş anı (bkz. resume)
 let idleT0 = nowS();
@@ -116,7 +116,6 @@ function diag(k, o){ DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +s
 function onProps(e){
   diag('pr', {ti: (e && e.title || '').slice(0, 30)});
   const title = (e && e.title) || '', artist = (e && e.artist) || '';
-  M.album = (e && e.albumTitle) || '';
   const key = artist + '\u0001' + title;
   if (key === M.key) return;
   // yeni şarkı: renkler/tema değişir. Saat ekranındaysak arama bitene dek saat eski renklerinde kalır (CLK_HOLD),
@@ -411,7 +410,7 @@ async function startTrack(key){
 }
 
 /* ================= Kelime senkronu (yerel servis) ================= */
-// %USERPROFILE%\KinetikKlip\senkron\senkron_servis.py: şarkıyı YouTube'dan bulur, vokali ayırır, Whisper ile her kelimenin
+// server/kinetic_server.py: şarkıyı YouTube'dan bulur, vokali ayırır, Whisper ile her kelimenin
 // zamanını çıkarır. Sözler önce satır zamanlı gösterilir; kelime zamanları gelince aynı sözler onlarla yeniden dizilir.
 // Servis kapalıysa ya da sözler sesle tutmazsa hiçbir şey değişmez. İlk kez ~30 sn sürer, sonra servisin önbelleğinden anında.
 // src null: şarkının sözü hiç bulunamadı; servis duyduğu metni satırlarıyla (j.lines) yollar.
@@ -706,9 +705,6 @@ const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'e
 const CHORUS_STYLES = ['dev', 'tekrar', 'serit', 'halka', 'donus', 'glitch', 'kesik', 'bukum', 'patlama', 'derin', 'esnek', 'dilim', 'neon', 'kilit', 'hiz', 'kup', 'koridor', 'sarmal', 'toplanma', 'yildiz'];
 let prevStyle = '', USE = {}, useKey = '', CHS = {}; // USE: şarkı boyunca stil kullanım sayıları, CHS: nakarat satırı → stil
 function chooseStyle(li, lw, isChorus){
-  // ayarlardan sabitlenen stil (test sayfası da window.__kk_force ile zorlayabilir)
-  const forced = window.__kk_force;
-  if (forced && STYLES[forced] && !(STYLES[forced].dom && !HAS_G3)) return forced;
   if (useKey !== M.key){ useKey = M.key; USE = {}; CHS = {}; } // yeni şarkıda sayaç sıfırlanır
   // rap modu: satırda kelimeler saniyede ~4'ten sık geliyorsa okunur kalsın diye tek tek sert kesme
   if (S.rap && mode !== 'idle' && lw.length >= 4){ const iv = (lw[lw.length - 1].t - lw[0].t) / (lw.length - 1); if (iv > 0 && iv < .24) return 'rap'; }
@@ -1091,11 +1087,10 @@ function ensureBlock(li){
   if (style === 'sarmal') h = W * .45; // sarmal kendi tek sırasını kurar; satır sıralarının yüksekliği kamerayı gereksiz geri çekerdi
   if (style === 'tekrar'){ const ex = h * 1.3; lw.forEach(w => { w.y += ex; w.base += ex; }); h += 2 * ex; } // üst/alt konturlara yer
   lw.forEach(w => w.bi = li);
-  // her kelime farklı animasyon (ayar kelimekarma); stil elle sabitlendiyse o stil saf hâliyle oynar
-  const pinned = !!STYLES[window.__kk_force];
+  // her kelime farklı animasyon (ayar kelimekarma)
   lw.forEach(w => { w.anim = null; w.g3a = null; });
-  if (S.wordMix && !pinned && MIX.includes(style)){ const cp = catPool(), mix = cp && cp.some(k => MIX.includes(k)) ? MIX.filter(k => cp.includes(k)) : MIX; let pv = style; lw.forEach(w => { const c = mix.filter(k => k !== pv); w.anim = pv = c[Math.floor(rnd() * c.length)]; }); }
-  if (S.wordMix && !pinned && STYLES[style].dom && style !== 'kup' && style !== 'sarmal'){ let pv = ''; lw.forEach(w => { const c = G3ENTER.filter(k => k !== pv); w.g3a = pv = c[Math.floor(rnd() * c.length)]; }); }
+  if (S.wordMix && MIX.includes(style)){ const cp = catPool(), mix = cp && cp.some(k => MIX.includes(k)) ? MIX.filter(k => cp.includes(k)) : MIX; let pv = style; lw.forEach(w => { const c = mix.filter(k => k !== pv); w.anim = pv = c[Math.floor(rnd() * c.length)]; }); }
+  if (S.wordMix && STYLES[style].dom && style !== 'kup' && style !== 'sarmal'){ let pv = ''; lw.forEach(w => { const c = G3ENTER.filter(k => k !== pv); w.g3a = pv = c[Math.floor(rnd() * c.length)]; }); }
   // yön: düz ya da ±90° (klasik çevirme); hafif 3D eğim ve derinlik farkı
   let rot = 0;
   if (blocks[li - 1] && rnd() < S.rot * .55) rot = (rnd() < .5 ? -1 : 1) * Math.PI / 2;
@@ -3346,7 +3341,6 @@ function frame(ts){
   try { frameBody(ts); }
   catch(e){
     const m = String(e && e.message) + ' @ ' + String(e && e.stack || '').split('\n').slice(1, 4).map(s => s.trim().replace(/^at /, '').replace(/\(.*kinetik\.js:/, '(')).join(' < ');
-    if (window.__err) window.__err.push(m);
     if (m !== ERRLAST || ++ERRN % 300 === 0){ ERRLAST = m; diag('err', {m: m.slice(0, 300), mode, st: (blocks[(words[activeIndex(curT())] || {}).li] || {}).style}); }
     try { if (g.reset) g.reset(); else { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; } } catch(_){}
   }
@@ -3371,10 +3365,6 @@ function frameBody(ts){
 }
 applyLook(); ensureFont(); setMode('idle');
 requestAnimationFrame(frame);
-window.__kk = {MIX, B3, fxWave, cg(){ return camGoal(curT(), cv.width, cv.height); }, get CAMK(){ return CAMK; }, /* test: kelime tanıma */ wordTest(r, l){ const o = UPL; UPL = l || o; try { return [iconOf(r), semOf(r)]; } finally { UPL = o; } }, get CAMU(){ return CAM.u; }, get G3(){ return G3; }, HAS_G3, get TRN(){ return {SPL, SPLS, WP: !!WP, RLI, BC, FQ}; }, get BR(){ return BR; }, get POSTER(){ return POSTER; }, get XF(){ return XFL; }, MOUSE, CAM, pg(){ return posterGoal(curT(), cv.width, cv.height); }, tick(dt){ render(curT(), dt); }, /* test: kare döngüsü kısılan başsız tarayıcıda zamanı ilerletir */ S, L, M, get mode(){ return mode; }, get words(){ return words; }, get blocks(){ return blocks; }, get theme(){ return TH_KEY; }, curT,
-  // test: kamera oturmuş hâlde bir karenin çizim süresi (ms)
-  bench(n){ snapCam = true; const T = curT(); render(T, 1/60); const t = performance.now(); for (let i = 0; i < n; i++) render(T, 1/60); return (performance.now() - t) / n; },
-  settle(){ snapCam = true; render(curT(), 1/60); }};
 
 // Dinleyiciler hemen kaydedilmeli (onload içinde değil)
 if (window.wallpaperRegisterAudioListener) window.wallpaperRegisterAudioListener(onAudio);

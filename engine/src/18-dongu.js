@@ -20,7 +20,6 @@ function frame(ts){
   try { frameBody(ts); }
   catch(e){
     const m = String(e && e.message) + ' @ ' + String(e && e.stack || '').split('\n').slice(1, 4).map(s => s.trim().replace(/^at /, '').replace(/\(.*kinetik\.js:/, '(')).join(' < ');
-    if (window.__err) window.__err.push(m);
     if (m !== ERRLAST || ++ERRN % 300 === 0){ ERRLAST = m; diag('err', {m: m.slice(0, 300), mode, st: (blocks[(words[activeIndex(curT())] || {}).li] || {}).style}); }
     try { if (g.reset) g.reset(); else { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; } } catch(_){}
   }
@@ -45,10 +44,6 @@ function frameBody(ts){
 }
 applyLook(); ensureFont(); setMode('idle');
 requestAnimationFrame(frame);
-window.__kk = {MIX, B3, fxWave, cg(){ return camGoal(curT(), cv.width, cv.height); }, get CAMK(){ return CAMK; }, /* test: kelime tanıma */ wordTest(r, l){ const o = UPL; UPL = l || o; try { return [iconOf(r), semOf(r)]; } finally { UPL = o; } }, get CAMU(){ return CAM.u; }, get G3(){ return G3; }, HAS_G3, get TRN(){ return {SPL, SPLS, WP: !!WP, RLI, BC, FQ}; }, get BR(){ return BR; }, get POSTER(){ return POSTER; }, get XF(){ return XFL; }, MOUSE, CAM, pg(){ return posterGoal(curT(), cv.width, cv.height); }, tick(dt){ render(curT(), dt); }, /* test: kare döngüsü kısılan başsız tarayıcıda zamanı ilerletir */ S, L, M, get mode(){ return mode; }, get words(){ return words; }, get blocks(){ return blocks; }, get theme(){ return TH_KEY; }, curT,
-  // test: kamera oturmuş hâlde bir karenin çizim süresi (ms)
-  bench(n){ snapCam = true; const T = curT(); render(T, 1/60); const t = performance.now(); for (let i = 0; i < n; i++) render(T, 1/60); return (performance.now() - t) / n; },
-  settle(){ snapCam = true; render(curT(), 1/60); }};
 
 // Dinleyiciler hemen kaydedilmeli (onload içinde değil)
 if (window.wallpaperRegisterAudioListener) window.wallpaperRegisterAudioListener(onAudio);

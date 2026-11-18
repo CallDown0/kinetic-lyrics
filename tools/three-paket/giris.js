@@ -5,8 +5,8 @@
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, ClearPass, EffectPass, Effect, EffectAttribute, BlendFunction,
   ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect } from 'postprocessing';
-import { Text, preloadFont, configureTextBuilder } from 'troika-three-text';
+import { Text, preloadFont } from 'troika-three-text';
 window.THREE = THREE;
 window.PP = { EffectComposer, RenderPass, ClearPass, EffectPass, Effect, EffectAttribute, BlendFunction,
   ChromaticAberrationEffect, ShockWaveEffect, NoiseEffect, VignetteEffect };
-window.TT = { Text, preloadFont, configureTextBuilder };
+window.TT = { Text, preloadFont };

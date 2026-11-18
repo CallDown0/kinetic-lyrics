@@ -205,7 +205,7 @@ async function startTrack(key){
 }
 
 /* ================= Kelime senkronu (yerel servis) ================= */
-// %USERPROFILE%\KinetikKlip\senkron\senkron_servis.py: şarkıyı YouTube'dan bulur, vokali ayırır, Whisper ile her kelimenin
+// server/kinetic_server.py: şarkıyı YouTube'dan bulur, vokali ayırır, Whisper ile her kelimenin
 // zamanını çıkarır. Sözler önce satır zamanlı gösterilir; kelime zamanları gelince aynı sözler onlarla yeniden dizilir.
 // Servis kapalıysa ya da sözler sesle tutmazsa hiçbir şey değişmez. İlk kez ~30 sn sürer, sonra servisin önbelleğinden anında.
 // src null: şarkının sözü hiç bulunamadı; servis duyduğu metni satırlarıyla (j.lines) yollar.
