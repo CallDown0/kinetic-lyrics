@@ -211,11 +211,15 @@ async function startTrack(key){
 // src null: şarkının sözü hiç bulunamadı; servis duyduğu metni satırlarıyla (j.lines) yollar.
 // sayfa sunucudan açıldıysa (tarayıcı oynatıcısı) aynı sunucu; Wallpaper Engine dosyadan açar, o zaman varsayılan port
 const WS_URL = (/^https?:/.test(location.protocol) ? location.origin : 'http://127.0.0.1:8778') + '/senkron';
+// WS_LAST: son istenen senkron; yapay zeka araçları şarkı ortasında açılınca aynı şarkı için yeniden başlatılır
+let WS_LAST = null;
 async function wordSync(key, src, timed){
   if (APP) return; // telefonda yerel servis yok
+  WS_LAST = {key, src, timed};
+  if (!S.ai) return; // yapay zeka araçları kapalı: sözler satır zamanlı kalır
   if (!M.dur) await new Promise(r => setTimeout(r, 1500)); // süre şarkı sürümünü seçmek için gerekli
   for (let i = 0; i < 60; i++){
-    if (key !== M.key) return;
+    if (key !== M.key || !S.ai) return;
     let j;
     try {
       // text/plain: ön kontrol (preflight) isteği gerektirmeyen basit istek

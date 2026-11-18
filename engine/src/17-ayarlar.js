@@ -52,6 +52,10 @@ window.wallpaperPropertyListener = {
     if (p.saat){ S.clock = !!p.saat.value; if (mode === 'idle') setMode('idle'); }
     if (p.fare) S.mouse = !!p.fare.value;
     if (p.cikis){ S.exit = p.cikis.value || 'oto'; lay = true; }
+    if (p.yapayzeka){
+      const was = S.ai; S.ai = !!p.yapayzeka.value;
+      if (S.ai && !was && WS_LAST && WS_LAST.key === M.key) wordSync(WS_LAST.key, WS_LAST.src, WS_LAST.timed); // çalan şarkı için hemen başla
+    }
     if (p.ceviri){ const was = S.translate; S.translate = !!p.ceviri.value; if (S.translate && !was && mode === 'lyrics' && M.key) loadTranslation(M.key); }
     // ilk yüklemede gelen değer yalnızca kaydedilir; sonra her değişimde çalan şarkının tıklamaları silinir
     if (p.senkronsifirla){

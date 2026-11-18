@@ -145,7 +145,7 @@ async function buildSettings(){
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(SK)) || {}; } catch(e){}
   const el = $('kl-set'), all = {};
   Object.entries(props).sort((a, b) => (a[1].order || 0) - (b[1].order || 0)).forEach(([k, p]) => {
-    if (k === 'senkronsifirla') return; // duvar kâğıdına özgü
+    if (k === 'senkronsifirla' || k === 'yapayzeka') return; // duvar kâğıdına özgü (tarayıcıda yapay zeka araçları hep açık)
     const v = k in saved ? saved[k] : p.value; all[k] = {value: v};
     const row = document.createElement('label'); row.className = 'kl-row';
     const name = document.createElement('span'); name.textContent = p.text.replace(/<[^>]+>/g, ''); row.appendChild(name);

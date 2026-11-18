@@ -327,6 +327,12 @@
 				"type": "bool",
 				"value": true
 			},
+			"yapayzeka": {
+				"order": 490,
+				"text": "Yapay zeka araçları (kelime senkronu, sesten söz çıkarma; yerel sunucu gerekir)",
+				"type": "bool",
+				"value": false
+			},
 			"ceviri": {
 				"order": 500,
 				"text": "Yabancı sözlerde Türkçe çeviri",

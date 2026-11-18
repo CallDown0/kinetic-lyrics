@@ -13,7 +13,8 @@ const nowS = () => performance.now() / 1000;
 const APP = !!(window.KK && window.KK.uygulama);
 
 const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, off:0, info:true, status:true, clock:true, particles:true, bg:'oto', semantic:true, breath:true, poster:true, mouse:true, rap:true,
-  exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6 };
+  exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6,
+  ai:true }; // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
 const up = s => S.upper ? s.toLocaleUpperCase(UPL) : s;

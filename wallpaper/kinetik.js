@@ -20,7 +20,8 @@ const nowS = () => performance.now() / 1000;
 const APP = !!(window.KK && window.KK.uygulama);
 
 const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, off:0, info:true, status:true, clock:true, particles:true, bg:'oto', semantic:true, breath:true, poster:true, mouse:true, rap:true,
-  exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6 };
+  exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6,
+  ai:true }; // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
 const up = s => S.upper ? s.toLocaleUpperCase(UPL) : s;
@@ -416,11 +417,15 @@ async function startTrack(key){
 // src null: şarkının sözü hiç bulunamadı; servis duyduğu metni satırlarıyla (j.lines) yollar.
 // sayfa sunucudan açıldıysa (tarayıcı oynatıcısı) aynı sunucu; Wallpaper Engine dosyadan açar, o zaman varsayılan port
 const WS_URL = (/^https?:/.test(location.protocol) ? location.origin : 'http://127.0.0.1:8778') + '/senkron';
+// WS_LAST: son istenen senkron; yapay zeka araçları şarkı ortasında açılınca aynı şarkı için yeniden başlatılır
+let WS_LAST = null;
 async function wordSync(key, src, timed){
   if (APP) return; // telefonda yerel servis yok
+  WS_LAST = {key, src, timed};
+  if (!S.ai) return; // yapay zeka araçları kapalı: sözler satır zamanlı kalır
   if (!M.dur) await new Promise(r => setTimeout(r, 1500)); // süre şarkı sürümünü seçmek için gerekli
   for (let i = 0; i < 60; i++){
-    if (key !== M.key) return;
+    if (key !== M.key || !S.ai) return;
     let j;
     try {
       // text/plain: ön kontrol (preflight) isteği gerektirmeyen basit istek
@@ -3303,6 +3308,10 @@ window.wallpaperPropertyListener = {
     if (p.saat){ S.clock = !!p.saat.value; if (mode === 'idle') setMode('idle'); }
     if (p.fare) S.mouse = !!p.fare.value;
     if (p.cikis){ S.exit = p.cikis.value || 'oto'; lay = true; }
+    if (p.yapayzeka){
+      const was = S.ai; S.ai = !!p.yapayzeka.value;
+      if (S.ai && !was && WS_LAST && WS_LAST.key === M.key) wordSync(WS_LAST.key, WS_LAST.src, WS_LAST.timed); // çalan şarkı için hemen başla
+    }
     if (p.ceviri){ const was = S.translate; S.translate = !!p.ceviri.value; if (S.translate && !was && mode === 'lyrics' && M.key) loadTranslation(M.key); }
     // ilk yüklemede gelen değer yalnızca kaydedilir; sonra her değişimde çalan şarkının tıklamaları silinir
     if (p.senkronsifirla){
