@@ -2,10 +2,33 @@
 let mode = 'idle', words = [], blocks = [], gen = null, assigned = -1;
 function parseLrc(lrc){
   const re = /^\[(\d+):(\d+(?:[.,]\d+)?)\]\s*(.*)$/;
-  return lrc.split(/\r?\n/).map(l => l.trim().match(re)).filter(Boolean).map(m => ({
-    t: +m[1] * 60 + parseFloat(m[2].replace(',', '.')),
-    words: m[3].replace(/<\d+:\d+(?:[.,]\d+)?>/g, ' ').split(/\s+/).filter(Boolean)
-  }));
+  return lrc.split(/\r?\n/).map(l => l.trim().match(re)).filter(Boolean).map(m => {
+    const t = lrcSec(m[1], m[2]), words = m[3].replace(/<\d+:\d+(?:[.,]\d+)?>/g, ' ').split(/\s+/).filter(Boolean);
+    const wt = m[3].includes('<') ? lrcWordTimes(m[3], t) : null;
+    return wt && wt.length === words.length ? {t, words, wt} : {t, words};
+  });
+}
+const lrcSec = (m, s) => +m * 60 + parseFloat(s.replace(',', '.'));
+// Gelişmiş LRC: satır içinde kelimelerin önünde <dd:ss.xx> damgaları ("<00:12.30> kelime <00:12.80> kelime").
+// Her kelimeye [başlangıç, bitiş] verir (kelime senkronu servisinin biçimi); damgalar tutarsızsa null (satır zamanlı kalır).
+function lrcWordTimes(text, t0){
+  const parts = text.split(/<(\d+):(\d+(?:[.,]\d+)?)>/), segs = [];
+  let tags = 0;
+  for (let i = 0; i < parts.length; i += 3){
+    const t = i ? lrcSec(parts[i - 2], parts[i - 1]) : t0, ws = parts[i].split(/\s+/).filter(Boolean);
+    if (i) tags++;
+    if (!isFinite(t) || (segs.length && t < segs[segs.length - 1].t)) return null;
+    segs.push({t, n: ws.length});
+  }
+  if (tags < 2) return null;
+  const out = [];
+  segs.forEach((s, i) => {
+    if (!s.n) return;
+    // bölümün bitişi sıradaki damga; satır sonunda damga yoksa konuşma hızında tahmin
+    const end = i + 1 < segs.length ? segs[i + 1].t : s.t + s.n * .35, d = Math.max(.02, end - s.t) / s.n;
+    for (let k = 0; k < s.n; k++) out.push([s.t + k * d, s.t + (k + 1) * d]);
+  });
+  return out;
 }
 function lyricWords(src){
   // wt: kelime senkronu servisinden gelen kelime başına [başlangıç, bitiş] (varsa satır içi tahmin yerine kullanılır)

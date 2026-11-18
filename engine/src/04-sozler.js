@@ -190,10 +190,12 @@ async function startTrack(key){
     const diff = M.dur && r.srcDur ? M.dur - r.srcDur : 0, intro = !APP && diff > 2 && diff < 150 ? diff : 0; // uygulamada şarkı sürümü çalınır: fark genelde sondaki sessizlik
     M.syncHint = Math.abs(diff) > 2;
     try { SO = APP ? 0 : +(localStorage.getItem('kk4o:' + key) || 0) || 0; } catch(e){ SO = 0; }
-    const src = parseLrc(r.lrc).map(l => ({t: l.t + intro, words: l.words}));
+    const src = parseLrc(r.lrc).map(l => l.wt ? {t: l.t + intro, words: l.words, wt: l.wt.map(x => [x[0] + intro, x[1] + intro])} : {t: l.t + intro, words: l.words});
+    // sözlerin kendi kelime damgaları varsa (gelişmiş LRC) kelime senkronu servisine gerek yok
+    const ownWt = src.some(l => l.wt) && src.every(l => !l.words.length || l.wt);
     setMode('lyrics', src);
     status(M.syncHint ? 'Sözler: ' + r.name + '. Video şarkıdan ' + Math.round(Math.abs(diff)) + ' sn ' + (diff > 0 ? 'uzun' : 'kısa') + '; kayma varsa ekrandaki satır söylenirken ekrana tıkla.' : 'Sözler: ' + r.name, M.syncHint);
-    wordSync(key, src, true);
+    if (ownWt){ WS_LAST = null; if (!M.syncHint) status('Sözler: ' + r.name + ' (kelime zamanlı)'); } else wordSync(key, src, true);
   }
   else if (r.plain){ PL = {key, base: plainLines(r.plain, M.dur), anchors: loadAnchors(key)}; applyPlain(false); wordSync(key, PL.base, false); }
   else {
