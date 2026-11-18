@@ -400,7 +400,7 @@ function exitKind(style, rot){
   // 90° dönük satırda erime ve domino yazının kendi "aşağısına", yani ekranda yana akar: yerine ekran yerçekimli kırılma
   if (S.exit !== 'oto') return rot && (S.exit === 'erime' || S.exit === 'domino') ? 'kirilma' : S.exit;
   // otomatik: art arda aynısı gelmez; sakin bölümde erime/kum, enerjik bölümde kırılma/domino öne çıkar; arada düz sönme
-  const e = energy(), wt = {kum: 1, erime: e < .45 ? 1.6 : .7, domino: e > .4 ? 1.2 : .7, kirilma: e > .55 ? 1.6 : .6, '': .9};
+  const e = energy(), wt = {kum: 1, erime: e < .45 ? 1.6 : .7, domino: e > .4 ? 1.2 : .7, kirilma: e > .55 ? 1.6 : .6, buhar: e < .45 ? 1.3 : .5, piksel: e > .5 ? 1.2 : .5, yanma: .9, '': .9};
   const c = Object.keys(wt).filter(k => k !== prevExit || k === '');
   let tot = 0; c.forEach(k => tot += wt[k]);
   let r = Math.random() * tot, pick = '';

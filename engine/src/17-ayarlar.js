@@ -43,6 +43,10 @@ window.wallpaperPropertyListener = {
     if (p.parcacik) S.particles = !!p.parcacik.value;
     if (p.sinema) S.cine = !!p.sinema.value;
     if (p.parlama) S.bloom = !!p.parlama.value;
+    if (p.hava) S.weather = !!p.hava.value;
+    if (p.derinlik) S.depth = !!p.derinlik.value;
+    if (p.bozulma) S.distort = !!p.bozulma.value;
+    if (p.filtre) S.filter = p.filtre.value || 'kapali';
     if (p.sinemasiddet) S.cineAmt = p.sinemasiddet.value / 100;
     if (p.buyukharf){ S.upper = !!p.buyukharf.value; lay = true; }
     if (p.takip) S.move = p.takip.value / 100;

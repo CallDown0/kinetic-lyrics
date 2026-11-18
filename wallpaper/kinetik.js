@@ -24,7 +24,7 @@ const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, 
   // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
   // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
   // spec: ses spektrumu (kapali | cubuk | dalga); record: şarkı kartındaki kapak plak gibi döner
-  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true, clockKind:'dijital' };
+  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true, clockKind:'dijital', weather:true, depth:true, distort:true, filter:'kapali' };
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (REDUCED) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
@@ -1220,7 +1220,7 @@ function exitKind(style, rot){
   // 90° dönük satırda erime ve domino yazının kendi "aşağısına", yani ekranda yana akar: yerine ekran yerçekimli kırılma
   if (S.exit !== 'oto') return rot && (S.exit === 'erime' || S.exit === 'domino') ? 'kirilma' : S.exit;
   // otomatik: art arda aynısı gelmez; sakin bölümde erime/kum, enerjik bölümde kırılma/domino öne çıkar; arada düz sönme
-  const e = energy(), wt = {kum: 1, erime: e < .45 ? 1.6 : .7, domino: e > .4 ? 1.2 : .7, kirilma: e > .55 ? 1.6 : .6, '': .9};
+  const e = energy(), wt = {kum: 1, erime: e < .45 ? 1.6 : .7, domino: e > .4 ? 1.2 : .7, kirilma: e > .55 ? 1.6 : .6, buhar: e < .45 ? 1.3 : .5, piksel: e > .5 ? 1.2 : .5, yanma: .9, '': .9};
   const c = Object.keys(wt).filter(k => k !== prevExit || k === '');
   let tot = 0; c.forEach(k => tot += wt[k]);
   let r = Math.random() * tot, pick = '';
@@ -1456,6 +1456,7 @@ function drawSem(b, w, age, P, active, a, U, V, N, anchor, col, kick, e){
 
 // kelime girişleri (konum kayması, ölçek, saydamlık); age harf gecikmesiyle de çağrılır
 const STAG = {sakin: 1, poster: 1, dusen: 1, donus: 1, derin: 1, hiz: 1}, STG = .02;
+const TRAIL = {poster: 1, dusen: 1, derin: 1, hiz: 1};
 // okunurluk: giriş kelimenin söylenme anından bu kadar önce başlar (söylendiğinde kelime okunur hâldedir)
 const EARLY = .2;
 function entr(style, w, age, dur, e, U, V, N, H){
@@ -1502,6 +1503,12 @@ function drawWord0(b, w, T, P, st, alpha, e, kick, swing){
     for (let i = 0; i < n; i++){
       const ag = age - i * stg; if (ag <= 0) continue;
       const r = entr(style, w, ag, dur, e, U, V, N, H), ad = (i + 1 < n ? w.offs[i + 1] : w.w100) - w.offs[i];
+      // kelime izi (ayar derinlik): hızlı kayan girişlerde harfin arkasında sönen iki kopya kalır
+      if (S.depth && TRAIL[style] && ag < dur) for (const tk of [2, 1]){
+        const r2 = entr(style, w, Math.max(.001, ag - tk * .035), dur, e, U, V, N, H);
+        if (!setXform(vadd(anchor, r2.off), vmul(U, r2.sc), vmul(V, r2.sc), w.s, w.offs[i] + ad / 2, cy)) continue;
+        g.globalAlpha = alpha * r2.a * (tk === 1 ? .28 : .14); g.fillText(w.chars[i], w.offs[i], 0);
+      }
       if (!setXform(vadd(anchor, r.off), vmul(U, r.sc), vmul(V, r.sc), w.s, w.offs[i] + ad / 2, cy)) continue;
       g.globalAlpha = alpha * r.a; g.fillText(w.chars[i], w.offs[i], 0);
     }
@@ -1853,7 +1860,7 @@ function drawExit(b, T, q, P){
     g.font = w.font; g.fillStyle = col;
     // ekranın aşağı yönü yerel yazı uzayında (satır dönük olsa da parçalar ekranda aşağı düşer)
     const m = g.getTransform(), det = (m.a * m.d - m.b * m.c) || 1; let gx = -m.c / det, gy = m.a / det; const gl = Math.hypot(gx, gy) || 1; gx /= gl; gy /= gl;
-    if (b.exit === 'kum' || b.exit === 'erime'){
+    if (b.exit === 'kum' || b.exit === 'erime' || b.exit === 'buhar' || b.exit === 'piksel' || b.exit === 'yanma'){
       // görüntü bir kez çizilir, parçaları drawImage ile taşınır (harf başına fillText'ten çok ucuz)
       if (!w.exK) w.exK = clamp(Math.round(scr * 2) / 2, 1, Math.min(4, 4096 / (w.w100 + 28)));
       const k = w.exK, spr = wordSprite(w, col, k), pad = w.sprPad, x0 = -pad, y0 = -A - pad, BW = w.w100 + 2 * pad, BH = H + 2 * pad;
@@ -1871,6 +1878,40 @@ function drawExit(b, T, q, P){
             g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x + wind - gx * lift + cw * (1 - sz) / 2, y - gy * lift + ch * (1 - sz) / 2, cw * sz, ch * sz);
           }
         }
+      } else if (b.exit === 'buhar'){
+        // buharlaşma: dikey şeritler dalgalanarak yukarı süzülür, incelip söner
+        const st = clamp(Math.round(n * 6), 12, 44), sw = BW / st;
+        for (let i = 0; i < st; i++){
+          const h1 = hash01(w.idx * 61 + i * 19), dq = clamp((q - h1 * .25) / .75, 0, 1), up = dq * dq * H * (.9 + h1 * 1.6), wob = Math.sin(dq * 7 + h1 * 9) * H * .12 * dq;
+          g.globalAlpha = 1 - dq;
+          g.drawImage(spr, i * sw * k, 0, sw * k, spr.height, x0 + i * sw + wob - gx * up, y0 - gy * up - dq * BH * .25, (sw + .4) * (1 - dq * .5), BH * (1 + dq * .5));
+        }
+      } else if (b.exit === 'piksel'){
+        // piksellere dağılma: kareler rastgele sırayla yerinden kopar, her yöne saçılıp küçülür
+        const cols = clamp(Math.round(n * 3.5), 8, 30), rows = 5, cw = BW / cols, ch = BH / rows;
+        for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++){
+          const h1 = hash01(w.idx * 97 + i * 13 + j * 29), h2 = hash01(w.idx * 43 + i * 31 + j * 7), pc = clamp((q - h1 * .45) / .55, 0, 1), x = x0 + i * cw, y = y0 + j * ch;
+          if (pc <= 0){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x, y, cw + .3, ch + .3); continue; }
+          const a = h2 * 6.2832, dist = pc * pc * H * (1 + h1 * 2), sz = 1 - pc * .8, sn = Math.round(pc * 3) / 3; // konum basamaklı: piksel hissi
+          g.globalAlpha = 1 - pc;
+          g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x + Math.cos(a) * dist * (.4 + sn) + cw * (1 - sz) / 2, y + Math.sin(a) * dist * (.4 + sn) + gy * pc * pc * H * .8 + ch * (1 - sz) / 2, cw * sz, ch * sz);
+        }
+      } else if (b.exit === 'yanma'){
+        // yanma: ateş soldan sağa ilerler; yanan yer vurgu renginde kor olup yukarı savrulur, geride bir şey kalmaz
+        const cols = clamp(Math.round(n * 5), 12, 40), rows = 6, cw = BW / cols, ch = BH / rows;
+        for (let i = 0; i < cols; i++){
+          const cd = i / cols * .6;
+          if (q <= cd){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, 0, cw * k, spr.height, x0 + i * cw, y0, cw + .3, BH); continue; }
+          for (let j = 0; j < rows; j++){
+            const h1 = hash01(w.idx * 151 + i * 23 + j * 11), pc = clamp((q - cd - h1 * .08) / .32, 0, 1), x = x0 + i * cw, y = y0 + j * ch;
+            if (pc <= 0){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x, y, cw + .3, ch + .3); continue; }
+            if (pc >= 1 || !(j >= 1 && j <= 4)) continue; // kenar boşlukları kor üretmez
+            const up = pc * H * (.5 + h1 * 1.5), sz = Math.min(cw, ch) * (1 - pc) * .7;
+            g.globalAlpha = 1 - pc * pc; g.fillStyle = P.ac;
+            g.fillRect(x + Math.sin(pc * 8 + h1 * 9) * H * .08 - gx * up, y - gy * up, sz, sz);
+          }
+        }
+        g.fillStyle = col;
       } else {
         // erime: dikey şeritler farklı hızlarda aşağı akıp uzar, sonda söner
         const st = clamp(Math.round(n * 6), 12, 44), sw = BW / st, fade = 1 - clamp((q - .65) / .35, 0, 1);
@@ -2034,7 +2075,7 @@ const SNAP = document.createElement('canvas'), sng = SNAP.getContext('2d');
 // eski ekran gerçek eski ekran kalır, alttaki yeni ekran zaten canlı güncellenir (art arda iki geçiş olmaz).
 const XS = document.createElement('canvas'), xsg = XS.getContext('2d');
 const NS = document.createElement('canvas'), nsg = NS.getContext('2d');
-const TRANS = ['bol', 'zoom', 'jaluzi', 'kayma'];
+const TRANS = ['bol', 'zoom', 'jaluzi', 'kayma', 'murekkep', 'iris', 'sayfa'];
 let FADE = null, lastTrans = '';
 const trIO = q => q < .5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;   // yavaş başla, hızlan, yavaş otur
 const trOut = q => q >= 1 ? 1 : 1 - Math.pow(2, -9 * q);                      // hızlı gel, yumuşak otur
@@ -2048,8 +2089,8 @@ function screenFade(){
   lastTrans = k;
   // bölme çizgisi: dikey, yatay ya da çapraz
   const ang = [Math.PI / 2, 0, .38, -.38][Math.floor(Math.random() * 4)];
-  FADE = {t0: nowS(), k, ang, dir: Math.random() < .5 ? 1 : -1, ac: pre().ac,
-    dur: k === 'sade' ? .9 : k === 'jaluzi' ? 1.25 : k === 'bol' ? 1.15 : k === 'zoom' ? .95 : 1.05};
+  FADE = {t0: nowS(), k, ang, dir: Math.random() < .5 ? 1 : -1, ac: pre().ac, seeds: Array.from({length: 7}, () => [Math.random(), Math.random(), Math.random()]),
+    dur: k === 'sade' ? .9 : k === 'jaluzi' ? 1.25 : k === 'bol' ? 1.15 : k === 'zoom' ? .95 : k === 'iris' ? 1.2 : k === 'murekkep' ? 1.15 : 1.05};
 }
 function drawFade(){
   if (!FADE) return;
@@ -2099,6 +2140,27 @@ function drawFade(){
       const off = (i % 2 ? 1 : -1) * trIO(p) * VH * 1.05, x0 = Math.floor(i * w), x1 = Math.ceil((i + 1) * w);
       g.drawImage(XS, x0, 0, x1 - x0, VH, x0, off, x1 - x0, VH);
     }
+  } else if (k === 'murekkep'){
+    // mürekkep: yeni ekran, farklı hızlarda büyüyen lekelerin içinden görünür; lekelerin kenarı vurgu renginde
+    const e = trIO(q), R = Math.hypot(VW, VH) * 1.02, bw = Math.min(VW, VH) * .012 * (1 - q);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(XS, 0, 0);
+    const blobs = grow => { g.beginPath(); for (const s of FADE.seeds){ const r = R * Math.pow(e, 1 + s[2] * 1.8) + grow; if (r <= 0) continue; const x = s[0] * VW, y = s[1] * VH; g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832); } };
+    if (bw > .5){ blobs(bw); g.fillStyle = FADE.ac; g.fill(); }
+    blobs(0); g.clip(); g.drawImage(NS, 0, 0);
+  } else if (k === 'iris'){
+    // iris: eski ekran ortaya doğru kapanan dairede kalır, sonra yeni ekran aynı daireden açılır; dışarısı vurgu renginde
+    const R = Math.hypot(VW, VH) / 2 * 1.02, close = q < .5, r = close ? R * (1 - trIO(q / .5)) : R * trIO((q - .5) / .5);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (close) g.drawImage(XS, 0, 0); // açılırken tuvalde zaten yeni ekran var
+    g.beginPath(); g.rect(0, 0, VW, VH); g.arc(VW / 2, VH / 2, Math.max(0, r), 0, 6.2832, true); g.fillStyle = FADE.ac; g.fill('evenodd');
+  } else if (k === 'sayfa'){
+    // sayfa çevirme: eski ekran sağdan sola kıvrılarak açılır; kıvrımın arkası açık renkli, önünde ince gölge
+    const e = trIO(q), d = FADE.dir, sl = VH * .12, edge = lerp(VW + sl, -sl - VW * .2, e), fw = Math.min(VW * .2, (VW + sl - edge) * .5), P0 = pre();
+    g.setTransform(d > 0 ? 1 : -1, 0, 0, 1, d > 0 ? 0 : VW, 0);
+    const poly = (xa, xb) => { g.beginPath(); g.moveTo(xa + sl, 0); g.lineTo(xb + sl, 0); g.lineTo(xb - sl, VH); g.lineTo(xa - sl, VH); g.closePath(); };
+    g.save(); poly(-VW, edge); g.clip(); if (d < 0) g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(XS, 0, 0); g.restore();
+    g.fillStyle = mixHex(P0.bg, '#000000', .3); poly(edge + fw, edge + fw + Math.min(VW, VH) * .012); g.fill();
+    g.fillStyle = mixHex(P0.bg, P0.fg, .82); poly(edge, edge + fw); g.fill();
   } else {
     // kayma: yeni ekran yandan gelip eskisini iter; eski geri çekilirken biraz küçülür, arada vurgu renginde ince şerit
     const e = trIO(q), d = FADE.dir, bw = Math.min(VW, VH) * .012;
@@ -2967,7 +3029,33 @@ function fxInit(T3){
         outputColor = c / 9.; }`, {attributes: PP.EffectAttribute.CONVOLUTION, uniforms: new Map([['dir', new T3.Uniform(new T3.Vector2())]])});
     // parlama (ayar parlama): yalnız koyu zeminde, parlak yazı ve vurgu ışık halesi verir; kapalıyken geçidi de kapalı (GPU harcamaz)
     if (PP.BloomEffect){ B3.bloom = new PP.BloomEffect({intensity: 0, luminanceThreshold: .62, luminanceSmoothing: .25, mipmapBlur: true, radius: .7}); B3.pbloom = new PP.EffectPass(B3.cam, B3.bloom); B3.pbloom.enabled = false; }
-    for (const p of [B3.p3, B3.pov, B3.pbloom, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) if (p) C.addPass(p);
+    // ekran filtresi ve bozulmalar (ayar filtre / bozulma): tek efekt, hepsi sıfırken geçidi kapalı.
+    // VHS (tarama çizgileri, hafif kavis, kayan bant), yarım ton (baskı noktaları), bas dalgası (merkezden yayılan dalgalanma),
+    // glitch (büyük düşüşte yatay yırtılma), kaleydoskop (nakarat girişinde kısa aynalanma).
+    B3.scr = new PP.Effect('kkScreen', `uniform float uRip, uGl, uKal, uVhs, uHalf, uT;
+      void mainUv(inout vec2 uv){
+        if (uVhs > 0.){ vec2 c = uv - .5; uv = .5 + c * (1. + uVhs * .07 * dot(c, c)); }
+        if (uKal > 0.){ vec2 c = uv - .5; c.x *= aspect; float a = atan(c.y, c.x), r = length(c); a = abs(mod(a, 2.0944) - 1.0472);
+          vec2 k = vec2(cos(a), sin(a)) * r; k.x /= aspect; uv = mix(uv, k + .5, uKal); }
+        if (uRip > 0.){ vec2 c = uv - .5; float r = length(c); uv += c / (r + 1e-4) * sin(r * 42. - uT * 9.) * uRip * .006 * smoothstep(0., .25, r); }
+        if (uGl > 0.){ float band = floor(uv.y * 16. + uT * 2.), h = fract(sin(band * 91.7 + floor(uT * 18.) * 7.3) * 43758.5453); uv.x += (h - .5) * step(.5, h) * uGl * .14; }
+      }
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
+        vec3 c = inputColor.rgb;
+        if (uVhs > 0.){
+          float sl = .5 + .5 * sin(uv.y * resolution.y * 1.6), bar = smoothstep(.06, 0., abs(fract(uv.y + uT * .09) - .5));
+          c *= 1. - uVhs * (.2 * sl + .1 * bar); c = mix(c, c * vec3(1.06, 1., .94), uVhs);
+          vec2 e = abs(uv - .5) * 2.; c *= 1. - uVhs * .5 * smoothstep(.75, 1.05, max(e.x, e.y));
+        }
+        if (uHalf > 0.){
+          vec2 q = mat2(.7071, -.7071, .7071, .7071) * (uv * resolution / (resolution.y / 140.));
+          float d = length(fract(q) - .5), l = dot(c, vec3(.299, .587, .114)), dotv = 1. - smoothstep(-.08, .08, d - (.16 + .4 * l));
+          c = mix(c, c * (.68 + .5 * dotv), uHalf);
+        }
+        outputColor = vec4(c, inputColor.a);
+      }`, {uniforms: new Map(['uRip', 'uGl', 'uKal', 'uVhs', 'uHalf', 'uT'].map(k => [k, new T3.Uniform(0)]))});
+    B3.pscr = new PP.EffectPass(B3.cam, B3.scr); B3.pscr.enabled = false;
+    for (const p of [B3.p3, B3.pov, B3.pbloom, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), B3.pscr, new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) if (p) C.addPass(p); // son geçit hep açık olmalı: ekrana o yazar
   } catch(e){ diag('fx', {m: String(e && e.message).slice(0, 160)}); return false; }
   return true;
 }
@@ -2980,6 +3068,20 @@ function fxUpdate(T, dt){
   const a = S.cine ? S.cineAmt : 0, cb = blocks[curLine], kick = clamp((L.low - L.lowSlow) * 2.4, 0, 1);
   const co = (L.beat * .006 + kick * .0025) * a; B3.chroma.offset.set(co, co * .5);
   B3.noise.blendMode.opacity.value = .12 * a; B3.vig.darkness = .5 * a;
+  if (B3.scr){
+    const U = B3.scr.uniforms, sm = (k, tg, sp) => { const u = U.get(k); u.value += (tg - u.value) * Math.min(1, dt * sp); return u.value; };
+    const dOn = S.distort && !REDUCED;
+    // glitch: büyük düşüşten sonraki 0.35 sn; kaleydoskop: nakarata girişin ilk 0.5 sn'si (yarım sinüs); bas dalgası: güçlü basta
+    let gl = 0, kal = 0;
+    const drS = L.drops.length ? L.drops[L.drops.length - 1] : null;
+    if (dOn && drS != null){ const x = T - drS; if (x >= 0 && x < .35) gl = 1 - x / .35; }
+    if (dOn && cb && cb.chorus && T >= cb.t0 && T - cb.t0 < .5){ const pb = blocks[cb.li - 1]; if (!pb || !pb.chorus) kal = Math.sin((T - cb.t0) / .5 * Math.PI) * .85; }
+    U.get('uGl').value = gl; U.get('uKal').value = kal; U.get('uT').value = nowS() % 1000;
+    const rip = sm('uRip', dOn ? clamp((L.lowSlow - .5) * 2.2, 0, 1) * (.5 + .5 * energy()) : 0, 5);
+    const vhs = sm('uVhs', S.filter === 'vhs' ? 1 : 0, 3), half = sm('uHalf', S.filter === 'yarimton' ? 1 : 0, 3);
+    B3.pscr.enabled = gl + kal + rip + vhs + half > .004;
+    if (gl > 0) B3.chroma.offset.x += gl * .012; // yırtılmayla birlikte renk kanalları da ayrılır
+  }
   if (B3.bloom){
     const bg = pre().bg, tg = S.bloom && /^#[0-9a-f]{6}$/i.test(bg) && lum(bg) < .1 ? .55 + L.beat * .45 : 0;
     B3.bloomI = (B3.bloomI || 0) + (tg - (B3.bloomI || 0)) * Math.min(1, dt * 4);
@@ -3092,9 +3194,10 @@ function render(T, dt){
   SX = noise1(T * 11) * amp; SY = noise1(T * 13 + 5) * amp;
   const Pd = fgSwap ? {bg: P.ac, fg: P.bg, ac: P.bg} : P;
   if (!B3.want){ drawBackground(T, dt, Pd, VW, VH, li, cb, e); drawDots(fgSwap ? {fg: P.bg} : P, kick); }
+  drawLeak(T, dt, Pd, VW, VH, e);
   drawSpectrum(Pd, VW, VH, dt);
   // destek efektleri: yeni kelimede parçacık patlaması, vuruşta kıvılcım (yılan çizgiler denendi, kullanıcı beğenmedi)
-  if (aw && aw.idx !== FX.last){ FX.last = aw.idx; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && T - aw.t < .4) fxWord(b, aw, e); }
+  if (aw && aw.idx !== FX.last){ FX.last = aw.idx; wxWord(aw); const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && T - aw.t < .4) fxWord(b, aw, e); }
   if (aw && L.beatN !== FX.beatN){ FX.beatN = L.beatN; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && S.particles) burst(b, aw, 4 + Math.round(8 * e), .5); }
   fxStep(dt);
   for (const b of POSTER > 0 ? blocks.filter(Boolean) : [blocks[li - 1], cb]){
@@ -3126,6 +3229,9 @@ function render(T, dt){
       const q = clamp((T - b.t0 + LEAD) / .75, 0, 1), ang = (1 - easeOut(q)) * 1.25 * (b.li % 2 ? 1 : -1);
       if (ang) swing = {U: vrot(b.U, b.V, ang), V: b.V, N: vrot(b.N, b.V, ang)};
     }
+    // derinlik bulanıklığı (ayar derinlik): sönmekte olan önceki satır bulanıklaşır, söylenen satır net kalır
+    const dblur = S.depth && back !== 0 && POSTER === 0 && ba < .97 ? (1 - ba) * Math.min(VW, VH) * .007 : 0;
+    if (dblur > .4) g.filter = 'blur(' + dblur.toFixed(1) + 'px)';
     for (const w of b.words){
       const st = w.idx === ai ? 2 : w.t <= T + EARLY ? 1 : 0;
       if (STYLES[b.style].single){
@@ -3147,6 +3253,7 @@ function render(T, dt){
       w.chorus = b.chorus;
       mousePush(b, w); drawWord(b, w, T, Pb, st, ba, e, kick, swing); PX = PY = 0;
     }
+    if (dblur > .4) g.filter = 'none';
     // kilit imzası: satır başlarken yavaşça belirir
     if (b.cap && setXform(bpt(b, b.cap.x, b.cap.base), b.U, b.V, b.cap.s, 0, 0)){
       g.font = fontStr(false); g.globalAlpha = ba * .85 * clamp((T - b.t0 - .3) / .8, 0, 1); g.fillStyle = Pb.fg; g.fillText(b.cap.text, 0, 0);
@@ -3154,6 +3261,7 @@ function render(T, dt){
   }
   drawIcons(T, li, Pd, cb);
   drawParticles(Pd);
+  drawWeather(T, dt, Pd, VW, VH, e, cb, li);
   if (SPL && SPLS > 0) drawSplit(T, P, e);
   if (WP) drawWipe(T, P);
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
@@ -3165,7 +3273,7 @@ function render(T, dt){
 // izgara (kayan ızgara), serit (kayan çapraz şeritler). Otomatikte her şarkıda biri rastgele seçilir.
 // Saydamlık yok: soluk görünmesi gerekenler zemin ile yazı renginin karışımı olan düz renkle çizilir; kaybolurken
 // incelir/küçülür/geri çekilir.
-const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit', 'kapak'];
+const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit', 'kapak', 'isin'];
 const BR = {list: [], timer: .5, lastLi: -1, kind: '', key: null, beatN: 0, t: 0};
 function mixHex(a, b, t){
   const p = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -3397,7 +3505,8 @@ function drawBackground(T, dt, P, VW, VH, li, cb, e){
 
   // kırpma yok: efektler yazının arkasından kesintisiz geçer (kelime çevresinde kutu gibi boşluk kalmasın)
   g.setTransform(1, 0, 0, 1, 0, 0); g.save(); g.globalAlpha = 1;
-  if (kind === 'cizgi') for (const s of BR.list) drawLineItem(s, P);
+  if (kind === 'isin') drawRays(P, VW, VH);
+  else if (kind === 'cizgi') for (const s of BR.list) drawLineItem(s, P);
   else if (kind === 'sekil') for (const s of BR.list) drawShapeItem(s, P, VW);
   else if (kind === 'halka'){
     const R = Math.hypot(VW, VH) * .6;
@@ -3586,6 +3695,143 @@ setInterval(() => {
   im.classList.toggle('plak', !!S.record); im.classList.toggle('dur', !M.playing);
 }, 500);
 
+// ===== src/16-yeni-efektler.js =====
+/* ---------- hava olayları, toz, konfeti, şimşek, ışık sızıntısı (ekran uzayında; ayar hava / parlama) ----------
+   Yağmur, kar, yaprak ve kor: sözlerde ilgili kelime söylenince birkaç saniyeliğine bütün ekrana yayılır.
+   Toz zerreleri sakin bölümlerde süzülür; konfeti nakarat girişinde ve şarkı sonu posterinde patlar;
+   şimşek büyük düşüşte ve "şimşek" kelimesinde çakar. Gerçek zamanla ilerler (sarma etkilemez). */
+const WX = {kind: '', until: -9, pts: [], dust: null, conf: [], bolt: null, chB: null, poster: '', drop: null, acc: 0};
+const WX_LEAF = /^(yaprak\w*|sonbahar\w*|hazan\w*|autumn|leaf|leaves)$/;
+function wxWord(w){
+  if (!S.weather) return;
+  if (w.wx === undefined){
+    const ic = iconOf(w.raw), k = fold((w.raw || '').toLocaleLowerCase(UPL)).replace(/[^a-z0-9]/g, '');
+    w.wx = ic === 'yagmur' ? 'yagmur' : ic === 'kar' ? 'kar' : ic === 'ates' ? 'kor' : ic === 'simsek' ? 'simsek' : WX_LEAF.test(k) ? 'yaprak' : '';
+  }
+  if (w.wx === 'simsek') wxBolt(); else if (w.wx){ WX.kind = w.wx; WX.until = nowS() + 7; }
+}
+function wxConfetti(n){
+  if (!S.weather || REDUCED) return;
+  const VW = cv.width, VH = cv.height, m = Math.min(VW, VH);
+  for (let i = 0; i < n && WX.conf.length < 260; i++){
+    const left = i % 2 === 0, a = (left ? -1 : 1) * (.25 + Math.random() * .75), sp = m * (1.1 + Math.random() * 1.1);
+    WX.conf.push({x: left ? -m * .02 : VW + m * .02, y: VH * (.75 + Math.random() * .25), vx: -Math.sin(a) * sp, vy: -Math.cos(a) * sp, // içe ve yukarı
+      w: m * (.008 + Math.random() * .01), rot: Math.random() * 6.28, vr: (Math.random() - .5) * 14, age: 0, life: 2.2 + Math.random() * 1.4, c: i % 3});
+  }
+}
+function wxBolt(){
+  if (!S.weather || REDUCED) return;
+  const VW = cv.width, VH = cv.height, mk = (x, y, len, spread, depth) => {
+    const pts = [[x, y]], segs = []; let cx = x, cy = y;
+    const n = 9 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++){
+      cx += (Math.random() - .5) * spread; cy += len / n * (.6 + Math.random() * .8); pts.push([cx, cy]);
+      if (depth && Math.random() < .28) segs.push(...mk(cx, cy, len * (.25 + Math.random() * .25), spread * .8, 0));
+    }
+    return [pts, ...segs];
+  };
+  WX.bolt = {t0: nowS(), lines: mk(VW * (.2 + Math.random() * .6), -VH * .02, VH * (.55 + Math.random() * .3), VW * .09, 1)};
+}
+function drawWeather(T, dt, P, VW, VH, e, cb, li){
+  if (!S.weather) return;
+  const m = Math.min(VW, VH), now = nowS();
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
+  // tetikler: nakarat girişi ve poster → konfeti; büyük düşüş → şimşek
+  if (cb && cb.chorus && WX.chB !== cb && T >= cb.t0 && T - cb.t0 < .3){ WX.chB = cb; const pb = blocks[li - 1]; if (mode === 'lyrics' && (!pb || !pb.chorus)) wxConfetti(70); }
+  if (POSTER > 0 && WX.poster !== M.key){ WX.poster = M.key; wxConfetti(160); }
+  const dr = L.drops.length ? L.drops[L.drops.length - 1] : null;
+  if (dr !== WX.drop){ WX.drop = dr; if (dr != null && Math.abs(T - dr) < .5) wxBolt(); }
+  // toz zerreleri: sakin bölümde belirir, enerji yükselince söner
+  if (!WX.dust){ WX.dust = []; for (let i = 0; i < 26; i++) WX.dust.push({x: Math.random(), y: Math.random(), z: .3 + Math.random() * .7, ph: Math.random() * 6.28, a: Math.random() * 6.28}); }
+  WX.dustA = (WX.dustA || 0) + ((e < .38 && mode === 'lyrics' ? 1 : 0) - (WX.dustA || 0)) * Math.min(1, dt * .8);
+  if (WX.dustA > .02){
+    const col = lum(P.bg) < .4 ? mixHex(P.fg, '#FFFFFF', .3) : P.ac;
+    g.fillStyle = col;
+    for (const d of WX.dust){
+      d.x += Math.cos(d.a) * .012 * d.z * dt * (VH / VW); d.y += (Math.sin(d.a) * .012 - .008) * d.z * dt; d.a += Math.sin(now * .3 + d.ph) * dt * .4;
+      if (d.x < -.02) d.x = 1.02; else if (d.x > 1.02) d.x = -.02; if (d.y < -.02) d.y = 1.02; else if (d.y > 1.02) d.y = -.02;
+      g.globalAlpha = WX.dustA * (.18 + .3 * d.z) * (.55 + .45 * Math.sin(now * (1 + d.z) + d.ph));
+      g.beginPath(); g.arc(d.x * VW, d.y * VH, m * (.0015 + .0035 * d.z), 0, 6.2832); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  // yağmur / kar / yaprak / kor
+  const on = now < WX.until, k = WX.kind;
+  if (on){
+    WX.acc += dt * (k === 'yagmur' ? 130 : k === 'kar' ? 38 : k === 'kor' ? 30 : 12) * Math.min(1, (WX.until - now) / 1.5);
+    while (WX.acc >= 1 && WX.pts.length < 240){
+      WX.acc--; const r = Math.random;
+      if (k === 'yagmur') WX.pts.push({k, x: r() * 1.15 - .05, y: -.05, vx: -.12, vy: 1.5 + r() * .7, z: .5 + r() * .5, age: 0, life: 1.2});
+      else if (k === 'kar') WX.pts.push({k, x: r(), y: -.03, vx: 0, vy: .1 + r() * .14, z: .4 + r() * .6, ph: r() * 6.28, age: 0, life: 12});
+      else if (k === 'kor') WX.pts.push({k, x: r(), y: 1.03, vx: (r() - .5) * .05, vy: -(.12 + r() * .22), z: .4 + r() * .6, ph: r() * 6.28, age: 0, life: 4 + r() * 3});
+      else WX.pts.push({k, x: r() * 1.1, y: -.04, vx: -.05 - r() * .06, vy: .1 + r() * .12, z: .5 + r() * .5, ph: r() * 6.28, rot: r() * 6.28, vr: (r() - .5) * 4, ac: r() < .6, age: 0, life: 12});
+    }
+    if (WX.acc > 3) WX.acc = 3;
+  }
+  if (WX.pts.length){
+    const soft = mixHex(P.bg, P.fg, .5), bright = mixHex(P.bg, P.fg, .85);
+    for (let i = WX.pts.length - 1; i >= 0; i--){
+      const q = WX.pts[i]; q.age += dt;
+      const sway = q.k === 'kar' ? Math.sin(now * 1.3 + q.ph) * .02 : q.k === 'yaprak' ? Math.sin(now * 1.7 + q.ph) * .06 : q.k === 'kor' ? Math.sin(now * 2.3 + q.ph) * .03 : 0;
+      q.x += (q.vx + sway) * dt * (VH / VW) * (q.k === 'yagmur' ? 1 : q.z); q.y += q.vy * dt * (q.k === 'yagmur' ? 1 : q.z);
+      if (q.age > q.life || q.y > 1.06 || q.y < -.08 || q.x < -.1){ WX.pts.splice(i, 1); continue; }
+      const x = q.x * VW, y = q.y * VH;
+      if (q.k === 'yagmur'){ g.strokeStyle = soft; g.lineWidth = Math.max(1, m * .0018 * q.z); g.beginPath(); g.moveTo(x, y); g.lineTo(x + q.vx * VH * .03, y + q.vy * VH * .03 * q.z); g.stroke(); }
+      else if (q.k === 'kar'){ g.fillStyle = bright; g.beginPath(); g.arc(x, y, m * (.002 + .005 * q.z), 0, 6.2832); g.fill(); }
+      else if (q.k === 'kor'){ const f = 1 - q.age / q.life; g.globalAlpha = f; g.fillStyle = P.ac; const s = m * (.002 + .004 * q.z) * (.5 + .5 * f); g.fillRect(x - s, y - s, s * 2, s * 2); g.globalAlpha = 1; }
+      else { q.rot += q.vr * dt; const s = m * (.008 + .012 * q.z);
+        g.save(); g.translate(x, y); g.rotate(q.rot); g.scale(1, .45 + .4 * Math.sin(now * 3 + q.ph)); g.fillStyle = q.ac ? P.ac : soft;
+        g.beginPath(); g.moveTo(-s, 0); g.quadraticCurveTo(0, -s * .8, s, 0); g.quadraticCurveTo(0, s * .8, -s, 0); g.fill(); g.restore(); }
+    }
+  }
+  // konfeti: iki alt köşeden fırlar, yerçekimiyle düşer
+  if (WX.conf.length){
+    const cols = [P.ac, P.fg, mixHex(P.ac, P.fg, .5)];
+    for (let i = WX.conf.length - 1; i >= 0; i--){
+      const c = WX.conf[i]; c.age += dt; if (c.age > c.life || c.y > VH * 1.1){ WX.conf.splice(i, 1); continue; }
+      c.vy += m * 1.5 * dt; c.vx *= Math.exp(-dt * 1.1); c.vy *= Math.exp(-dt * .6); c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt;
+      g.save(); g.translate(c.x, c.y); g.rotate(c.rot); g.scale(1, Math.cos(c.age * 9 + c.rot)); g.globalAlpha = Math.min(1, (c.life - c.age) * 2);
+      g.fillStyle = cols[c.c]; g.fillRect(-c.w, -c.w * .5, c.w * 2, c.w); g.restore();
+    }
+    g.globalAlpha = 1;
+  }
+  // şimşek: kısa titrek çakma (dallı çizgi + hafif aydınlanma)
+  if (WX.bolt){
+    const x = now - WX.bolt.t0; if (x > .38) WX.bolt = null;
+    else {
+      const fl = (x < .05 ? 1 : .35 + .65 * Math.abs(Math.sin(x * 46))) * (1 - x / .38), col = lum(P.bg) < .5 ? mixHex(P.fg, '#FFFFFF', .6) : P.ac;
+      g.globalAlpha = fl * .16; g.fillStyle = col; g.fillRect(0, 0, VW, VH);
+      g.globalAlpha = fl; g.strokeStyle = col; g.lineJoin = 'round'; g.lineCap = 'round';
+      WX.bolt.lines.forEach((pts, i) => { g.lineWidth = Math.max(1.5, m * (i ? .0025 : .005)); g.beginPath(); pts.forEach((p, j) => j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); });
+      g.globalAlpha = 1;
+    }
+  }
+}
+// ışık sızıntısı: sakin bölümde kenarlardan süzülen vurgu rengi lekeler (film yanığı gibi); ayar parlama
+function drawLeak(T, dt, P, VW, VH, e){
+  WX.leak = (WX.leak || 0) + ((S.bloom && e < .42 && /^#[0-9a-f]{6}$/i.test(P.ac) ? 1 : 0) - (WX.leak || 0)) * Math.min(1, dt * .6);
+  if (WX.leak < .02) return;
+  const m = Math.min(VW, VH), now = nowS();
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  for (let i = 0; i < 2; i++){
+    const x = (i ? VW : 0) + Math.sin(now * .11 + i * 2.1) * VW * .12, y = VH * (.3 + .4 * Math.sin(now * .07 + i * 1.3) * (i ? -1 : 1) + .2 * i), R = m * (.75 + .1 * Math.sin(now * .2 + i));
+    const gr = g.createRadialGradient(x, y, 0, x, y, R); gr.addColorStop(0, P.ac + 'ff'); gr.addColorStop(1, P.ac + '00');
+    g.globalAlpha = WX.leak * .2; g.fillStyle = gr; g.fillRect(0, 0, VW, VH);
+  }
+  g.globalAlpha = 1;
+}
+// ışık huzmeleri (arka plan türü 'isin'): merkezden dışarı yavaşça dönen, genişliği nefes alan düz renkli ışınlar
+function drawRays(P, VW, VH){
+  const n = 16, R = Math.hypot(VW, VH), rot = BR.t * .025;
+  g.save(); g.translate(VW / 2, VH / 2);
+  for (let i = 0; i < n; i++){
+    const a = i / n * 6.2832 + rot, hw = Math.PI / n * (.3 + .22 * Math.sin(i * 2.3 + BR.t * .35)) * (1 + L.beat * .25);
+    g.fillStyle = i % 4 === 0 ? mixHex(P.bg, P.ac, .2) : mixHex(P.bg, P.fg, i % 2 ? .05 : .09);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a - hw) * R, Math.sin(a - hw) * R); g.lineTo(Math.cos(a + hw) * R, Math.sin(a + hw) * R); g.closePath(); g.fill();
+  }
+  g.restore();
+}
+
 // ===== src/17-ayarlar.js =====
 /* ================= Şarkı kartı ve görünüm ================= */
 function info(){
@@ -3632,6 +3878,10 @@ window.wallpaperPropertyListener = {
     if (p.parcacik) S.particles = !!p.parcacik.value;
     if (p.sinema) S.cine = !!p.sinema.value;
     if (p.parlama) S.bloom = !!p.parlama.value;
+    if (p.hava) S.weather = !!p.hava.value;
+    if (p.derinlik) S.depth = !!p.derinlik.value;
+    if (p.bozulma) S.distort = !!p.bozulma.value;
+    if (p.filtre) S.filter = p.filtre.value || 'kapali';
     if (p.sinemasiddet) S.cineAmt = p.sinemasiddet.value / 100;
     if (p.buyukharf){ S.upper = !!p.buyukharf.value; lay = true; }
     if (p.takip) S.move = p.takip.value / 100;

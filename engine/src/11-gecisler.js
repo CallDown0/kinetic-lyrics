@@ -8,7 +8,7 @@ const SNAP = document.createElement('canvas'), sng = SNAP.getContext('2d');
 // eski ekran gerçek eski ekran kalır, alttaki yeni ekran zaten canlı güncellenir (art arda iki geçiş olmaz).
 const XS = document.createElement('canvas'), xsg = XS.getContext('2d');
 const NS = document.createElement('canvas'), nsg = NS.getContext('2d');
-const TRANS = ['bol', 'zoom', 'jaluzi', 'kayma'];
+const TRANS = ['bol', 'zoom', 'jaluzi', 'kayma', 'murekkep', 'iris', 'sayfa'];
 let FADE = null, lastTrans = '';
 const trIO = q => q < .5 ? 4 * q * q * q : 1 - Math.pow(-2 * q + 2, 3) / 2;   // yavaş başla, hızlan, yavaş otur
 const trOut = q => q >= 1 ? 1 : 1 - Math.pow(2, -9 * q);                      // hızlı gel, yumuşak otur
@@ -22,8 +22,8 @@ function screenFade(){
   lastTrans = k;
   // bölme çizgisi: dikey, yatay ya da çapraz
   const ang = [Math.PI / 2, 0, .38, -.38][Math.floor(Math.random() * 4)];
-  FADE = {t0: nowS(), k, ang, dir: Math.random() < .5 ? 1 : -1, ac: pre().ac,
-    dur: k === 'sade' ? .9 : k === 'jaluzi' ? 1.25 : k === 'bol' ? 1.15 : k === 'zoom' ? .95 : 1.05};
+  FADE = {t0: nowS(), k, ang, dir: Math.random() < .5 ? 1 : -1, ac: pre().ac, seeds: Array.from({length: 7}, () => [Math.random(), Math.random(), Math.random()]),
+    dur: k === 'sade' ? .9 : k === 'jaluzi' ? 1.25 : k === 'bol' ? 1.15 : k === 'zoom' ? .95 : k === 'iris' ? 1.2 : k === 'murekkep' ? 1.15 : 1.05};
 }
 function drawFade(){
   if (!FADE) return;
@@ -73,6 +73,27 @@ function drawFade(){
       const off = (i % 2 ? 1 : -1) * trIO(p) * VH * 1.05, x0 = Math.floor(i * w), x1 = Math.ceil((i + 1) * w);
       g.drawImage(XS, x0, 0, x1 - x0, VH, x0, off, x1 - x0, VH);
     }
+  } else if (k === 'murekkep'){
+    // mürekkep: yeni ekran, farklı hızlarda büyüyen lekelerin içinden görünür; lekelerin kenarı vurgu renginde
+    const e = trIO(q), R = Math.hypot(VW, VH) * 1.02, bw = Math.min(VW, VH) * .012 * (1 - q);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(XS, 0, 0);
+    const blobs = grow => { g.beginPath(); for (const s of FADE.seeds){ const r = R * Math.pow(e, 1 + s[2] * 1.8) + grow; if (r <= 0) continue; const x = s[0] * VW, y = s[1] * VH; g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832); } };
+    if (bw > .5){ blobs(bw); g.fillStyle = FADE.ac; g.fill(); }
+    blobs(0); g.clip(); g.drawImage(NS, 0, 0);
+  } else if (k === 'iris'){
+    // iris: eski ekran ortaya doğru kapanan dairede kalır, sonra yeni ekran aynı daireden açılır; dışarısı vurgu renginde
+    const R = Math.hypot(VW, VH) / 2 * 1.02, close = q < .5, r = close ? R * (1 - trIO(q / .5)) : R * trIO((q - .5) / .5);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (close) g.drawImage(XS, 0, 0); // açılırken tuvalde zaten yeni ekran var
+    g.beginPath(); g.rect(0, 0, VW, VH); g.arc(VW / 2, VH / 2, Math.max(0, r), 0, 6.2832, true); g.fillStyle = FADE.ac; g.fill('evenodd');
+  } else if (k === 'sayfa'){
+    // sayfa çevirme: eski ekran sağdan sola kıvrılarak açılır; kıvrımın arkası açık renkli, önünde ince gölge
+    const e = trIO(q), d = FADE.dir, sl = VH * .12, edge = lerp(VW + sl, -sl - VW * .2, e), fw = Math.min(VW * .2, (VW + sl - edge) * .5), P0 = pre();
+    g.setTransform(d > 0 ? 1 : -1, 0, 0, 1, d > 0 ? 0 : VW, 0);
+    const poly = (xa, xb) => { g.beginPath(); g.moveTo(xa + sl, 0); g.lineTo(xb + sl, 0); g.lineTo(xb - sl, VH); g.lineTo(xa - sl, VH); g.closePath(); };
+    g.save(); poly(-VW, edge); g.clip(); if (d < 0) g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(XS, 0, 0); g.restore();
+    g.fillStyle = mixHex(P0.bg, '#000000', .3); poly(edge + fw, edge + fw + Math.min(VW, VH) * .012); g.fill();
+    g.fillStyle = mixHex(P0.bg, P0.fg, .82); poly(edge, edge + fw); g.fill();
   } else {
     // kayma: yeni ekran yandan gelip eskisini iter; eski geri çekilirken biraz küçülür, arada vurgu renginde ince şerit
     const e = trIO(q), d = FADE.dir, bw = Math.min(VW, VH) * .012;

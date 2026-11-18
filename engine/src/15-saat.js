@@ -139,7 +139,8 @@ function drawBackground(T, dt, P, VW, VH, li, cb, e){
 
   // kırpma yok: efektler yazının arkasından kesintisiz geçer (kelime çevresinde kutu gibi boşluk kalmasın)
   g.setTransform(1, 0, 0, 1, 0, 0); g.save(); g.globalAlpha = 1;
-  if (kind === 'cizgi') for (const s of BR.list) drawLineItem(s, P);
+  if (kind === 'isin') drawRays(P, VW, VH);
+  else if (kind === 'cizgi') for (const s of BR.list) drawLineItem(s, P);
   else if (kind === 'sekil') for (const s of BR.list) drawShapeItem(s, P, VW);
   else if (kind === 'halka'){
     const R = Math.hypot(VW, VH) * .6;

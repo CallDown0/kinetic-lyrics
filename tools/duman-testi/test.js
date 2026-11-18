@@ -47,6 +47,12 @@ const ok = (c, msg) => { if (!c) throw new Error(msg); };
     ok(await lyricsUp(o), 'durum yazısı sözleri göstermiyor'); await wait(o, 3000);
     ok(await inked(o) > 20, 'tuvalde yazı yok'); return o;
   });
+  await test('varsayılan ayarlarla ekrana görüntü çıkar (WebGL zinciri dahil)', async () => {
+    // boş ekranın görüntüsü birkaç KB'a sıkışır; yazılı kare onlarca KB tutar (son geçidi kapalı kalan zincir boş ekran verir)
+    const o = await open({}); ok(await lyricsUp(o), 'sözler gelmedi'); await wait(o, 3000);
+    const kb = (await o.p.screenshot()).length / 1024;
+    ok(kb > 15, 'ekran boş görünüyor (' + kb.toFixed(1) + ' KB)'); return o;
+  });
   await test('yapay zeka araçları kapalıyken sunucuya istek gitmez, açınca gider', async () => {
     const o = await open({yapayzeka: {value: false}}); ok(await lyricsUp(o), 'sözler gelmedi'); await wait(o, 2500);
     ok(o.senk === 0, 'kapalıyken ' + o.senk + ' istek gitti');
@@ -86,12 +92,19 @@ const ok = (c, msg) => { if (!c) throw new Error(msg); };
     const o = await open({});
     ok(await until(o, () => [...document.fonts].some(x => x.status === 'loaded')), 'gömülü font yüklenmedi'); return o;
   });
-  await test('bütün arka planlar, saat türleri ve özel tema hatasız çizilir', async () => {
+  await test('arka planlar, filtreler, satır sonu efektleri, geçişler, saat türleri ve özel tema hatasız çizilir', async () => {
     const o = await open({tema: {value: 'ozel'}, ozelzemin: {value: '0.05 0.2 0.18'}, ozelyazi: {value: '1 0.95 0.8'}, ozelvurgu: {value: '1 0.4 0.7'}, ozelfont: {value: 'serif'}});
     ok(await lyricsUp(o), 'sözler gelmedi');
     await o.p.evaluate(() => { let t = 0; setInterval(() => { t += .05; window.__L.Audio(Array.from({length: 128}, (_, i) => Math.abs(Math.sin(t * 5 + i)) * (i % 64 < 6 ? 1 : .3))); }, 50); });
-    for (const v of ['3d-parcacik', '3d-zemin', '3d-tunel', '3d-su', '3d-bulut', 'kapak', 'cizgi', 'halka', 'sekil', 'izgara', 'serit', 'yok']){ await set(o, {arkaplan: {value: v}, spektrum: {value: v < 'i' ? 'cubuk' : 'dalga'}}); await wait(o, 700); }
+    for (const v of ['3d-parcacik', '3d-zemin', '3d-tunel', '3d-su', '3d-bulut', 'kapak', 'isin', 'cizgi', 'halka', 'sekil', 'izgara', 'serit', 'yok']){ await set(o, {arkaplan: {value: v}, spektrum: {value: v < 'i' ? 'cubuk' : 'dalga'}}); await wait(o, 700); }
     ok(await o.p.evaluate(() => getComputedStyle(document.body).backgroundColor) === 'rgb(13, 51, 46)', 'özel tema zemini uygulanmadı');
+    // ekran filtreleri, satır sonu efektleri ve geçişler: kare içi hatalar tanı kaydına düşer
+    await set(o, {tani: {value: true}, arkaplan: {value: 'isin'}});
+    for (const v of ['vhs', 'yarimton', 'kapali']){ await set(o, {filtre: {value: v}}); await wait(o, 700); }
+    for (const v of ['yanma', 'buhar', 'piksel']){ await set(o, {cikis: {value: v}}); await wait(o, 3200); }
+    for (const v of ['murekkep', 'iris', 'sayfa']){ await set(o, {gecis: {value: v}}); await o.p.evaluate(v => window.__L.MediaProperties({title: 'Test Song ' + v, artist: 'Tester'}), v); await wait(o, 1500); }
+    const fe = await o.p.evaluate(() => JSON.parse(localStorage.getItem('kkdiag') || '[]').filter(d => d.k === 'err').map(d => d.m));
+    ok(!fe.length, 'kare hatası: ' + fe[0]);
     await o.p.evaluate(() => window.__L.MediaProperties({title: '', artist: ''})); // saat ekranı
     for (const v of ['dijital', 'analog', 'dev', 'flip']){ await set(o, {saatturu: {value: v}}); await wait(o, 600); ok(await inked(o) > 20, v + ' saat çizilmedi'); }
     return o;

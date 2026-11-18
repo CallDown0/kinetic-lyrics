@@ -62,9 +62,10 @@ function render(T, dt){
   SX = noise1(T * 11) * amp; SY = noise1(T * 13 + 5) * amp;
   const Pd = fgSwap ? {bg: P.ac, fg: P.bg, ac: P.bg} : P;
   if (!B3.want){ drawBackground(T, dt, Pd, VW, VH, li, cb, e); drawDots(fgSwap ? {fg: P.bg} : P, kick); }
+  drawLeak(T, dt, Pd, VW, VH, e);
   drawSpectrum(Pd, VW, VH, dt);
   // destek efektleri: yeni kelimede parçacık patlaması, vuruşta kıvılcım (yılan çizgiler denendi, kullanıcı beğenmedi)
-  if (aw && aw.idx !== FX.last){ FX.last = aw.idx; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && T - aw.t < .4) fxWord(b, aw, e); }
+  if (aw && aw.idx !== FX.last){ FX.last = aw.idx; wxWord(aw); const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && T - aw.t < .4) fxWord(b, aw, e); }
   if (aw && L.beatN !== FX.beatN){ FX.beatN = L.beatN; const b = blocks[aw.li]; if (b && !STYLES[b.style].whole && b.style !== 'sarmal' && S.particles) burst(b, aw, 4 + Math.round(8 * e), .5); }
   fxStep(dt);
   for (const b of POSTER > 0 ? blocks.filter(Boolean) : [blocks[li - 1], cb]){
@@ -96,6 +97,9 @@ function render(T, dt){
       const q = clamp((T - b.t0 + LEAD) / .75, 0, 1), ang = (1 - easeOut(q)) * 1.25 * (b.li % 2 ? 1 : -1);
       if (ang) swing = {U: vrot(b.U, b.V, ang), V: b.V, N: vrot(b.N, b.V, ang)};
     }
+    // derinlik bulanıklığı (ayar derinlik): sönmekte olan önceki satır bulanıklaşır, söylenen satır net kalır
+    const dblur = S.depth && back !== 0 && POSTER === 0 && ba < .97 ? (1 - ba) * Math.min(VW, VH) * .007 : 0;
+    if (dblur > .4) g.filter = 'blur(' + dblur.toFixed(1) + 'px)';
     for (const w of b.words){
       const st = w.idx === ai ? 2 : w.t <= T + EARLY ? 1 : 0;
       if (STYLES[b.style].single){
@@ -117,6 +121,7 @@ function render(T, dt){
       w.chorus = b.chorus;
       mousePush(b, w); drawWord(b, w, T, Pb, st, ba, e, kick, swing); PX = PY = 0;
     }
+    if (dblur > .4) g.filter = 'none';
     // kilit imzası: satır başlarken yavaşça belirir
     if (b.cap && setXform(bpt(b, b.cap.x, b.cap.base), b.U, b.V, b.cap.s, 0, 0)){
       g.font = fontStr(false); g.globalAlpha = ba * .85 * clamp((T - b.t0 - .3) / .8, 0, 1); g.fillStyle = Pb.fg; g.fillText(b.cap.text, 0, 0);
@@ -124,6 +129,7 @@ function render(T, dt){
   }
   drawIcons(T, li, Pd, cb);
   drawParticles(Pd);
+  drawWeather(T, dt, Pd, VW, VH, e, cb, li);
   if (SPL && SPLS > 0) drawSplit(T, P, e);
   if (WP) drawWipe(T, P);
   g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
@@ -135,7 +141,7 @@ function render(T, dt){
 // izgara (kayan ızgara), serit (kayan çapraz şeritler). Otomatikte her şarkıda biri rastgele seçilir.
 // Saydamlık yok: soluk görünmesi gerekenler zemin ile yazı renginin karışımı olan düz renkle çizilir; kaybolurken
 // incelir/küçülür/geri çekilir.
-const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit', 'kapak'];
+const BG_KINDS = ['cizgi', 'halka', 'sekil', 'izgara', 'serit', 'kapak', 'isin'];
 const BR = {list: [], timer: .5, lastLi: -1, kind: '', key: null, beatN: 0, t: 0};
 function mixHex(a, b, t){
   const p = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];

@@ -50,7 +50,7 @@ function drawExit(b, T, q, P){
     g.font = w.font; g.fillStyle = col;
     // ekranın aşağı yönü yerel yazı uzayında (satır dönük olsa da parçalar ekranda aşağı düşer)
     const m = g.getTransform(), det = (m.a * m.d - m.b * m.c) || 1; let gx = -m.c / det, gy = m.a / det; const gl = Math.hypot(gx, gy) || 1; gx /= gl; gy /= gl;
-    if (b.exit === 'kum' || b.exit === 'erime'){
+    if (b.exit === 'kum' || b.exit === 'erime' || b.exit === 'buhar' || b.exit === 'piksel' || b.exit === 'yanma'){
       // görüntü bir kez çizilir, parçaları drawImage ile taşınır (harf başına fillText'ten çok ucuz)
       if (!w.exK) w.exK = clamp(Math.round(scr * 2) / 2, 1, Math.min(4, 4096 / (w.w100 + 28)));
       const k = w.exK, spr = wordSprite(w, col, k), pad = w.sprPad, x0 = -pad, y0 = -A - pad, BW = w.w100 + 2 * pad, BH = H + 2 * pad;
@@ -68,6 +68,40 @@ function drawExit(b, T, q, P){
             g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x + wind - gx * lift + cw * (1 - sz) / 2, y - gy * lift + ch * (1 - sz) / 2, cw * sz, ch * sz);
           }
         }
+      } else if (b.exit === 'buhar'){
+        // buharlaşma: dikey şeritler dalgalanarak yukarı süzülür, incelip söner
+        const st = clamp(Math.round(n * 6), 12, 44), sw = BW / st;
+        for (let i = 0; i < st; i++){
+          const h1 = hash01(w.idx * 61 + i * 19), dq = clamp((q - h1 * .25) / .75, 0, 1), up = dq * dq * H * (.9 + h1 * 1.6), wob = Math.sin(dq * 7 + h1 * 9) * H * .12 * dq;
+          g.globalAlpha = 1 - dq;
+          g.drawImage(spr, i * sw * k, 0, sw * k, spr.height, x0 + i * sw + wob - gx * up, y0 - gy * up - dq * BH * .25, (sw + .4) * (1 - dq * .5), BH * (1 + dq * .5));
+        }
+      } else if (b.exit === 'piksel'){
+        // piksellere dağılma: kareler rastgele sırayla yerinden kopar, her yöne saçılıp küçülür
+        const cols = clamp(Math.round(n * 3.5), 8, 30), rows = 5, cw = BW / cols, ch = BH / rows;
+        for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++){
+          const h1 = hash01(w.idx * 97 + i * 13 + j * 29), h2 = hash01(w.idx * 43 + i * 31 + j * 7), pc = clamp((q - h1 * .45) / .55, 0, 1), x = x0 + i * cw, y = y0 + j * ch;
+          if (pc <= 0){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x, y, cw + .3, ch + .3); continue; }
+          const a = h2 * 6.2832, dist = pc * pc * H * (1 + h1 * 2), sz = 1 - pc * .8, sn = Math.round(pc * 3) / 3; // konum basamaklı: piksel hissi
+          g.globalAlpha = 1 - pc;
+          g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x + Math.cos(a) * dist * (.4 + sn) + cw * (1 - sz) / 2, y + Math.sin(a) * dist * (.4 + sn) + gy * pc * pc * H * .8 + ch * (1 - sz) / 2, cw * sz, ch * sz);
+        }
+      } else if (b.exit === 'yanma'){
+        // yanma: ateş soldan sağa ilerler; yanan yer vurgu renginde kor olup yukarı savrulur, geride bir şey kalmaz
+        const cols = clamp(Math.round(n * 5), 12, 40), rows = 6, cw = BW / cols, ch = BH / rows;
+        for (let i = 0; i < cols; i++){
+          const cd = i / cols * .6;
+          if (q <= cd){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, 0, cw * k, spr.height, x0 + i * cw, y0, cw + .3, BH); continue; }
+          for (let j = 0; j < rows; j++){
+            const h1 = hash01(w.idx * 151 + i * 23 + j * 11), pc = clamp((q - cd - h1 * .08) / .32, 0, 1), x = x0 + i * cw, y = y0 + j * ch;
+            if (pc <= 0){ g.globalAlpha = 1; g.drawImage(spr, i * cw * k, j * ch * k, cw * k, ch * k, x, y, cw + .3, ch + .3); continue; }
+            if (pc >= 1 || !(j >= 1 && j <= 4)) continue; // kenar boşlukları kor üretmez
+            const up = pc * H * (.5 + h1 * 1.5), sz = Math.min(cw, ch) * (1 - pc) * .7;
+            g.globalAlpha = 1 - pc * pc; g.fillStyle = P.ac;
+            g.fillRect(x + Math.sin(pc * 8 + h1 * 9) * H * .08 - gx * up, y - gy * up, sz, sz);
+          }
+        }
+        g.fillStyle = col;
       } else {
         // erime: dikey şeritler farklı hızlarda aşağı akıp uzar, sonda söner
         const st = clamp(Math.round(n * 6), 12, 44), sw = BW / st, fade = 1 - clamp((q - .65) / .35, 0, 1);

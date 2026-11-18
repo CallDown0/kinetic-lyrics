@@ -5,7 +5,7 @@
 		"properties": {
 			"parlama": {
 				"order": 234,
-				"text": "Parlama (koyu temalarda ışık halesi)",
+				"text": "Parlama ve ışık sızıntısı (koyu temalarda ışık halesi, sakin bölümde renk lekeleri)",
 				"type": "bool",
 				"value": true
 			},
@@ -192,6 +192,10 @@
 						"value": "kapak"
 					},
 					{
+						"label": "Işık huzmeleri",
+						"value": "isin"
+					},
+					{
 						"label": "Çizgiler",
 						"value": "cizgi"
 					},
@@ -244,6 +248,18 @@
 						"value": "kayma"
 					},
 					{
+						"label": "Mürekkep",
+						"value": "murekkep"
+					},
+					{
+						"label": "İris",
+						"value": "iris"
+					},
+					{
+						"label": "Sayfa çevirme",
+						"value": "sayfa"
+					},
+					{
 						"label": "Sade",
 						"value": "sade"
 					}
@@ -274,6 +290,18 @@
 					{
 						"label": "Kırılma",
 						"value": "kirilma"
+					},
+					{
+						"label": "Yanma",
+						"value": "yanma"
+					},
+					{
+						"label": "Buharlaşma",
+						"value": "buhar"
+					},
+					{
+						"label": "Piksellere dağılma",
+						"value": "piksel"
 					},
 					{
 						"label": "Yok",
@@ -485,6 +513,44 @@
 						"value": "flip"
 					}
 				]
+			},
+			"filtre": {
+				"order": 235,
+				"text": "Ekran filtresi",
+				"type": "combo",
+				"value": "kapali",
+				"options": [
+					{
+						"label": "Kapalı",
+						"value": "kapali"
+					},
+					{
+						"label": "VHS / CRT",
+						"value": "vhs"
+					},
+					{
+						"label": "Yarım ton (baskı noktaları)",
+						"value": "yarimton"
+					}
+				]
+			},
+			"bozulma": {
+				"order": 236,
+				"text": "Ekran bozulmaları (glitch, bas dalgası, kaleydoskop)",
+				"type": "bool",
+				"value": true
+			},
+			"derinlik": {
+				"order": 237,
+				"text": "Derinlik bulanıklığı ve kelime izi",
+				"type": "bool",
+				"value": true
+			},
+			"hava": {
+				"order": 241,
+				"text": "Hava olayları (yağmur, kar, yaprak, kor, toz, konfeti, şimşek)",
+				"type": "bool",
+				"value": true
 			}
 		},
 		"supportsaudioprocessing": true

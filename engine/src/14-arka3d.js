@@ -236,7 +236,33 @@ function fxInit(T3){
         outputColor = c / 9.; }`, {attributes: PP.EffectAttribute.CONVOLUTION, uniforms: new Map([['dir', new T3.Uniform(new T3.Vector2())]])});
     // parlama (ayar parlama): yalnız koyu zeminde, parlak yazı ve vurgu ışık halesi verir; kapalıyken geçidi de kapalı (GPU harcamaz)
     if (PP.BloomEffect){ B3.bloom = new PP.BloomEffect({intensity: 0, luminanceThreshold: .62, luminanceSmoothing: .25, mipmapBlur: true, radius: .7}); B3.pbloom = new PP.EffectPass(B3.cam, B3.bloom); B3.pbloom.enabled = false; }
-    for (const p of [B3.p3, B3.pov, B3.pbloom, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) if (p) C.addPass(p);
+    // ekran filtresi ve bozulmalar (ayar filtre / bozulma): tek efekt, hepsi sıfırken geçidi kapalı.
+    // VHS (tarama çizgileri, hafif kavis, kayan bant), yarım ton (baskı noktaları), bas dalgası (merkezden yayılan dalgalanma),
+    // glitch (büyük düşüşte yatay yırtılma), kaleydoskop (nakarat girişinde kısa aynalanma).
+    B3.scr = new PP.Effect('kkScreen', `uniform float uRip, uGl, uKal, uVhs, uHalf, uT;
+      void mainUv(inout vec2 uv){
+        if (uVhs > 0.){ vec2 c = uv - .5; uv = .5 + c * (1. + uVhs * .07 * dot(c, c)); }
+        if (uKal > 0.){ vec2 c = uv - .5; c.x *= aspect; float a = atan(c.y, c.x), r = length(c); a = abs(mod(a, 2.0944) - 1.0472);
+          vec2 k = vec2(cos(a), sin(a)) * r; k.x /= aspect; uv = mix(uv, k + .5, uKal); }
+        if (uRip > 0.){ vec2 c = uv - .5; float r = length(c); uv += c / (r + 1e-4) * sin(r * 42. - uT * 9.) * uRip * .006 * smoothstep(0., .25, r); }
+        if (uGl > 0.){ float band = floor(uv.y * 16. + uT * 2.), h = fract(sin(band * 91.7 + floor(uT * 18.) * 7.3) * 43758.5453); uv.x += (h - .5) * step(.5, h) * uGl * .14; }
+      }
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
+        vec3 c = inputColor.rgb;
+        if (uVhs > 0.){
+          float sl = .5 + .5 * sin(uv.y * resolution.y * 1.6), bar = smoothstep(.06, 0., abs(fract(uv.y + uT * .09) - .5));
+          c *= 1. - uVhs * (.2 * sl + .1 * bar); c = mix(c, c * vec3(1.06, 1., .94), uVhs);
+          vec2 e = abs(uv - .5) * 2.; c *= 1. - uVhs * .5 * smoothstep(.75, 1.05, max(e.x, e.y));
+        }
+        if (uHalf > 0.){
+          vec2 q = mat2(.7071, -.7071, .7071, .7071) * (uv * resolution / (resolution.y / 140.));
+          float d = length(fract(q) - .5), l = dot(c, vec3(.299, .587, .114)), dotv = 1. - smoothstep(-.08, .08, d - (.16 + .4 * l));
+          c = mix(c, c * (.68 + .5 * dotv), uHalf);
+        }
+        outputColor = vec4(c, inputColor.a);
+      }`, {uniforms: new Map(['uRip', 'uGl', 'uKal', 'uVhs', 'uHalf', 'uT'].map(k => [k, new T3.Uniform(0)]))});
+    B3.pscr = new PP.EffectPass(B3.cam, B3.scr); B3.pscr.enabled = false;
+    for (const p of [B3.p3, B3.pov, B3.pbloom, new PP.EffectPass(B3.cam, B3.wave, B3.noise, B3.vig), B3.pscr, new PP.EffectPass(B3.cam, B3.chroma), new PP.EffectPass(B3.cam, B3.blur)]) if (p) C.addPass(p); // son geçit hep açık olmalı: ekrana o yazar
   } catch(e){ diag('fx', {m: String(e && e.message).slice(0, 160)}); return false; }
   return true;
 }
@@ -249,6 +275,20 @@ function fxUpdate(T, dt){
   const a = S.cine ? S.cineAmt : 0, cb = blocks[curLine], kick = clamp((L.low - L.lowSlow) * 2.4, 0, 1);
   const co = (L.beat * .006 + kick * .0025) * a; B3.chroma.offset.set(co, co * .5);
   B3.noise.blendMode.opacity.value = .12 * a; B3.vig.darkness = .5 * a;
+  if (B3.scr){
+    const U = B3.scr.uniforms, sm = (k, tg, sp) => { const u = U.get(k); u.value += (tg - u.value) * Math.min(1, dt * sp); return u.value; };
+    const dOn = S.distort && !REDUCED;
+    // glitch: büyük düşüşten sonraki 0.35 sn; kaleydoskop: nakarata girişin ilk 0.5 sn'si (yarım sinüs); bas dalgası: güçlü basta
+    let gl = 0, kal = 0;
+    const drS = L.drops.length ? L.drops[L.drops.length - 1] : null;
+    if (dOn && drS != null){ const x = T - drS; if (x >= 0 && x < .35) gl = 1 - x / .35; }
+    if (dOn && cb && cb.chorus && T >= cb.t0 && T - cb.t0 < .5){ const pb = blocks[cb.li - 1]; if (!pb || !pb.chorus) kal = Math.sin((T - cb.t0) / .5 * Math.PI) * .85; }
+    U.get('uGl').value = gl; U.get('uKal').value = kal; U.get('uT').value = nowS() % 1000;
+    const rip = sm('uRip', dOn ? clamp((L.lowSlow - .5) * 2.2, 0, 1) * (.5 + .5 * energy()) : 0, 5);
+    const vhs = sm('uVhs', S.filter === 'vhs' ? 1 : 0, 3), half = sm('uHalf', S.filter === 'yarimton' ? 1 : 0, 3);
+    B3.pscr.enabled = gl + kal + rip + vhs + half > .004;
+    if (gl > 0) B3.chroma.offset.x += gl * .012; // yırtılmayla birlikte renk kanalları da ayrılır
+  }
   if (B3.bloom){
     const bg = pre().bg, tg = S.bloom && /^#[0-9a-f]{6}$/i.test(bg) && lum(bg) < .1 ? .55 + L.beat * .45 : 0;
     B3.bloomI = (B3.bloomI || 0) + (tg - (B3.bloomI || 0)) * Math.min(1, dt * 4);

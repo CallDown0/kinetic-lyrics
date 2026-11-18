@@ -94,6 +94,7 @@ function drawSem(b, w, age, P, active, a, U, V, N, anchor, col, kick, e){
 
 // kelime girişleri (konum kayması, ölçek, saydamlık); age harf gecikmesiyle de çağrılır
 const STAG = {sakin: 1, poster: 1, dusen: 1, donus: 1, derin: 1, hiz: 1}, STG = .02;
+const TRAIL = {poster: 1, dusen: 1, derin: 1, hiz: 1};
 // okunurluk: giriş kelimenin söylenme anından bu kadar önce başlar (söylendiğinde kelime okunur hâldedir)
 const EARLY = .2;
 function entr(style, w, age, dur, e, U, V, N, H){
@@ -140,6 +141,12 @@ function drawWord0(b, w, T, P, st, alpha, e, kick, swing){
     for (let i = 0; i < n; i++){
       const ag = age - i * stg; if (ag <= 0) continue;
       const r = entr(style, w, ag, dur, e, U, V, N, H), ad = (i + 1 < n ? w.offs[i + 1] : w.w100) - w.offs[i];
+      // kelime izi (ayar derinlik): hızlı kayan girişlerde harfin arkasında sönen iki kopya kalır
+      if (S.depth && TRAIL[style] && ag < dur) for (const tk of [2, 1]){
+        const r2 = entr(style, w, Math.max(.001, ag - tk * .035), dur, e, U, V, N, H);
+        if (!setXform(vadd(anchor, r2.off), vmul(U, r2.sc), vmul(V, r2.sc), w.s, w.offs[i] + ad / 2, cy)) continue;
+        g.globalAlpha = alpha * r2.a * (tk === 1 ? .28 : .14); g.fillText(w.chars[i], w.offs[i], 0);
+      }
       if (!setXform(vadd(anchor, r.off), vmul(U, r.sc), vmul(V, r.sc), w.s, w.offs[i] + ad / 2, cy)) continue;
       g.globalAlpha = alpha * r.a; g.fillText(w.chars[i], w.offs[i], 0);
     }
