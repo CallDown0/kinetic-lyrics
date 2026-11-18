@@ -17,6 +17,10 @@ function bg3Init(){
   const T3 = window.THREE, el = $('bg3'); if (!T3 || !el) return false;
   try { B3.r = new T3.WebGLRenderer({canvas: el, antialias: true, powerPreference: 'high-performance'}); }
   catch(e){ diag('b3', {m: String(e && e.message).slice(0, 160)}); return false; }
+  // WebGL bağlamı kaybolabilir (sürücü sıfırlanması, uykudan dönüş, ekran kartı belleğini alan oyun). Sözler ekranında 2D tuval
+  // gizli olduğu ve kare WebGL'den geçtiği için kayıpta bütün yazılar kaybolurdu: kayıp sürerken 2D tuvale dönülür.
+  el.addEventListener('webglcontextlost', e => { e.preventDefault(); b3Lost(true); });
+  el.addEventListener('webglcontextrestored', () => b3Lost(false));
   B3.r.setPixelRatio(1);
   // renk dönüşümü kapalı: 2D tuvalin renkleri doku olarak aynen geçer (sahne shader'ları da ham değer yazar)
   B3.r.outputColorSpace = T3.LinearSRGBColorSpace;
@@ -99,10 +103,20 @@ function b3Terrain(T3){
   return m;
 }
 
+// bağlam kaybı / geri gelişi: kayıpta 3D yazı stilleri havuzdan çıkar ve satırlar 2D stillerle yeniden dizilir;
+// geri gelince three kaynaklarını kendisi yeniden kurar, 2D karenin dokusu yeniden ayrılır
+function b3Lost(lost){
+  if (!!B3.lost === lost) return;
+  B3.lost = lost; diag('gl', {lost: lost ? 1 : 0});
+  if (lost){ B3.domOff = []; for (const k in STYLES) if (STYLES[k].dom && STYLES[k].auto !== false){ STYLES[k].auto = false; B3.domOff.push(k); } }
+  else { for (const k of B3.domOff || []) delete STYLES[k].auto; B3.domOff = null; B3.texW = 0; B3.pf = null; }
+  CHS = {}; // nakarat satırına atanmış 3D stil kalmasın
+  if (mode === 'lyrics' && words.length) relayout();
+}
 // render() karede bir kez sorar: 3D arka plan bu karede çizilecek mi (saat ekranında değil, ayar açık, WebGL var)
 // arka plan 'Otomatik' ise her şarkıda yarı yarıya 3D sahne ya da 2D efekt
 function bg3Want(){
-  if (S.bg3 === 'kapali' || (mode === 'idle' && S.clock) || !bg3Init()) return false;
+  if (S.bg3 === 'kapali' || (mode === 'idle' && S.clock) || !bg3Init() || B3.lost) return false;
   if (S.bg3 !== 'oto') return true;
   if (B3.autoKey !== M.key){ B3.autoKey = M.key; B3.auto = Math.random() < .5; }
   return B3.auto;
@@ -190,7 +204,9 @@ function fxUpdate(T, dt){
 // kare sonu: sözler ekranında 2D kare WebGL'den geçer (3D arka plan, 3D yazı, sinema efektleri; efektler kapalıysa şiddet 0);
 // saat ekranında yalnız 3D arka plan (varsa) 2D tuvalin altında çizilir
 function glFrame(T, dt){
-  const el = $('bg3'), fx = !!(mode === 'lyrics' && bg3Init() && B3.fxOk);
+  // olay gelmeden kaybolan bağlam da yakalansın
+  if (B3.r && !B3.lost && B3.r.getContext().isContextLost()) b3Lost(true);
+  const el = $('bg3'), fx = !!(mode === 'lyrics' && bg3Init() && B3.fxOk && !B3.lost);
   const on = B3.want || fx;
   if (on !== B3.shown){ B3.shown = on; el.hidden = !on; }
   if (fx !== B3.fxOn){ B3.fxOn = fx; cv.style.visibility = fx ? 'hidden' : ''; if (fx) B3.pf = null; }
@@ -207,7 +223,7 @@ function glFrame(T, dt){
   fxUpdate(T, dt);
   // tuval boyutu değişince (pencere ya da otomatik çözünürlük düşürme) doku yeniden ayrılmalı: three dokunun belleğini
   // ilk boyutla ayırıyor, küçülen kare yalnız bir köşesine yazılıyor ve üst/sağ şeritte eski kare donuk kalıyordu
-  if (B3.texW !== cv.width || B3.texH !== cv.height){ if (B3.texW) B3.tex.dispose(); B3.texW = cv.width; B3.texH = cv.height; }
+  if (B3.texW !== cv.width || B3.texH !== cv.height){ if (B3.texW || B3.texH) B3.tex.dispose(); B3.texW = cv.width; B3.texH = cv.height; }
   B3.tex.needsUpdate = true;
   B3.p3.enabled = B3.want; B3.pov.clearPass.enabled = !B3.want;
   B3.comp.render(dt);

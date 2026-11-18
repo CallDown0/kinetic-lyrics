@@ -307,7 +307,7 @@ function y3Camera(){
 }
 function g3Frame(T){
   const want = new Set(), li = curLine;
-  if (HAS_G3 && mode !== 'idle' && POSTER === 0 && y3Init()) for (const b of [blocks[li - 1], blocks[li]]) if (b && STYLES[b.style].dom && T >= b.t0 - G3PRE) want.add(b);
+  if (HAS_G3 && !B3.lost && mode !== 'idle' && POSTER === 0 && y3Init()) for (const b of [blocks[li - 1], blocks[li]]) if (b && STYLES[b.style].dom && T >= b.t0 - G3PRE) want.add(b);
   // artık gerekmeyen blok 0.3 sn'de söner, sonra silinir
   for (const [b, o] of G3) if (!want.has(b) && !o.dying){ o.dying = true; gsap.to(o, {fade: 0, duration: .3, ease: 'power1.out', onComplete: () => { G3.delete(b); g3Dispose(o); }}); }
   if (Y3 && Y3.ok) Y3.pass.enabled = Y3.clear.enabled = G3.size > 0 || want.size > 0;
