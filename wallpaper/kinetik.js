@@ -24,7 +24,7 @@ const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, 
   // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
   // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
   // spec: ses spektrumu (kapali | cubuk | dalga); record: şarkı kartındaki kapak plak gibi döner
-  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true };
+  ai:true, diag:false, spec:'cubuk', record:true, bloom:true, beatflash:true, clockKind:'dijital' };
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (REDUCED) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
@@ -132,6 +132,7 @@ function onProps(e){
   const title = (e && e.title) || '', artist = (e && e.artist) || '';
   const key = artist + '\u0001' + title;
   if (key === M.key) return;
+  M.genres = (e && e.genres) || '';
   // yeni şarkı: renkler/tema değişir. Saat ekranındaysak arama bitene dek saat eski renklerinde kalır (CLK_HOLD),
   // sözler gelince ya da söz yoksa tek geçişle yeni şarkıya geçilir (art arda iki geçiş olmasın)
   if (mode === 'idle' && S.clock && title) CLK_HOLD = CLK_HOLD || pal(0); else screenFade();
@@ -669,9 +670,29 @@ const THEMES = {
   asit:     {bg:['#C6FF3D'], fg:['#0A0A0A'], ac:['#5B21FF'], big:{f:'Big Shoulders Display', w:900}, small:{f:'Big Shoulders Display', w:500}}
 };
 const THEME_KEYS = Object.keys(THEMES);
+// özel tema (ayar tema = ozel): renkler ve yazı tipi ayarlardan gelir; otomatik seçime girmez
+const OZEL_FONTS = {
+  bigshoulders: [{f:'Big Shoulders Display', w:900}, {f:'Big Shoulders Display', w:500}],
+  anybody:      [{f:'Anybody', w:800}, {f:'Anybody', w:400}],
+  unbounded:    [{f:'Unbounded', w:800}, {f:'Unbounded', w:400}],
+  serif:        [{f:'Instrument Serif', w:400}, {f:'Instrument Serif', w:400, it:true}]
+};
+THEMES.ozel = {bg:['#0E0F12'], fg:['#ECE9E2'], ac:['#E8553A'], big: OZEL_FONTS.bigshoulders[0], small: OZEL_FONTS.bigshoulders[1]};
+// Wallpaper Engine renk değeri "r g b" (0–1) → #rrggbb
+function weHex(v){ const c = String(v || '').trim().split(/\s+/).map(Number); if (c.length < 3 || c.some(x => !isFinite(x))) return null; return '#' + c.slice(0, 3).map(x => Math.round(clamp(x, 0, 1) * 255).toString(16).padStart(2, '0')).join(''); }
+// otomatik temada şarkının türü biliniyorsa (Wallpaper Engine her oynatıcıdan almaz) yazı tipi ona uygun temalardan seçilir
+const GENRE_TH = [
+  [/metal|rock|punk|grunge/, ['manset', 'asit', 'gece']],
+  [/hip.?hop|rap|trap|drill/, ['manset', 'neon', 'kobalt']],
+  [/electro|dance|edm|house|techno|synth|disco/, ['neon', 'kobalt', 'pop']],
+  [/jazz|caz|classical|klasik|blues|folk|acoustic|akustik|soul|türkü/, ['zarif', 'orman', 'kontrast']],
+  [/pop/, ['pop', 'beyaz', 'kontrast', 'orman']]
+];
 let TH = THEMES.manset, TH_KEY = 'manset';
 function pickTheme(){
-  TH_KEY = S.theme === 'oto' ? THEME_KEYS[strHash(M.key || 'idle') % THEME_KEYS.length] : (THEMES[S.theme] ? S.theme : 'manset');
+  let pool = THEME_KEYS;
+  const gn = (M.genres || '').toLowerCase(); if (gn){ const m = GENRE_TH.find(x => x[0].test(gn)); if (m) pool = m[1]; }
+  TH_KEY = S.theme === 'oto' ? pool[strHash(M.key || 'idle') % pool.length] : (THEMES[S.theme] ? S.theme : 'manset');
   TH = THEMES[TH_KEY];
 }
 function basePal(li){
@@ -737,6 +758,9 @@ const STYLES = {
   kilit:   {tier: 1, tier2: 2}, // editoryal kilit: dev küçük harfli ana kelime, üstünde küçük satır, altta imza
   hiz:     {tier: 2, tier2: 1}, // kelime hızla kayıp gelir: çizgi film gibi uzar, arkasında hız çizgileri
   origami: {tier: 1, tier2: 0}, // harfler kâğıt gibi: önce alt yarı kalkar, sonra üst yarı katlanmışken açılır
+  duman:   {tier: 0, tier2: 1}, // harfler yukarıda dalgalanan soluk kopyalardan süzülerek yerine iner
+  murekkep:{tier: 1, tier2: 0}, // kelime, birkaç noktadan yayılan mürekkep lekelerinin içinden görünür
+  elyazisi:{tier: 0, tier2: 1}, // harflerin konturu sırayla çizilir, çizilen harf ardından dolar
   // GSAP 3D stilleri (DOM katmanı, bkz. G3STYLE)
   kup:     {tier: 2, tier2: 1, single: true, dom: true, noIcon: true}, // kelimeler dönen küpün yüzlerinde, küp kelime başına yuvarlanır
   koridor: {tier: 2, tier2: 1, dom: true}, // harfler derinden sırayla uçar, biten satır kameranın yanından geçer
@@ -753,16 +777,16 @@ if (!HAS_G3) for (const k in STYLES) if (STYLES[k].dom) STYLES[k].auto = false;
 const STYLE_KEYS = Object.keys(STYLES);
 // menüdeki animasyon türleri: benzer stiller tek kategoride (seçilince otomatik seçim yalnız bu havuzdan yapılır)
 const CATS = {
-  sade:  ['sakin', 'daktilo', 'dolan', 'maske', 'kontur', 'sarkac'],
+  sade:  ['sakin', 'daktilo', 'dolan', 'maske', 'kontur', 'sarkac', 'duman', 'elyazisi'],
   kayan: ['poster', 'dusen', 'hiz', 'derin', 'esnek'],
-  harf:  ['kabarcik', 'rulet', 'coz', 'neon', 'origami', 'dilim', 'tabela'],
+  harf:  ['kabarcik', 'rulet', 'coz', 'neon', 'origami', 'dilim', 'tabela', 'murekkep'],
   uc:    ['donus', 'halka', 'perspektif', 'bukum', 'kup', 'koridor', 'sayfa', 'sarmal', 'toplanma', 'pano', 'yildiz', 'arazi'],
   sert:  ['glitch', 'kesik', 'patlama', 'tekrar', 'dev', 'serit', 'kilit']
 };
 const catPool = () => S.cat && CATS[S.cat] ? CATS[S.cat] : null;
 // kelime başına karışık animasyon: satırın stili yerleşimi ve kamerayı belirler, her kelime girişini bu havuzdan ayrı seçer
 // (dolan, dev, tekrar, kilit, rap, halka, şerit, perspektif, büküm satırın bütününe bağlı olduğu için karışmaz)
-const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'esnek', 'kabarcik', 'rulet', 'sarkac', 'dilim', 'neon', 'coz', 'origami', 'kesik', 'glitch', 'patlama', 'maske', 'kontur', 'donus'];
+const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'esnek', 'kabarcik', 'rulet', 'sarkac', 'dilim', 'neon', 'coz', 'origami', 'kesik', 'glitch', 'patlama', 'maske', 'kontur', 'donus', 'duman', 'murekkep', 'elyazisi'];
 // nakarat: gösterişli stiller; aynı nakarat satırı şarkı boyunca hep aynı stille gelir (şarkının yapısı hissedilir)
 const CHORUS_STYLES = ['dev', 'tekrar', 'serit', 'halka', 'donus', 'glitch', 'kesik', 'bukum', 'patlama', 'derin', 'esnek', 'dilim', 'neon', 'kilit', 'hiz', 'kup', 'koridor', 'sarmal', 'toplanma', 'yildiz'];
 let prevStyle = '', USE = {}, useKey = '', CHS = {}; // USE: şarkı boyunca stil kullanım sayıları, CHS: nakarat satırı → stil
@@ -1510,6 +1534,41 @@ function drawWord0(b, w, T, P, st, alpha, e, kick, swing){
     // bulanıklıktan belirme: iki soluk, büyük kopya içe doğru toplanır
     for (const k of [1, 2]){ const s2 = 1 + (1 - ep) * .12 * k; g.save(); g.translate(cx, cy); g.scale(s2, s2); g.translate(-cx, -cy); g.globalAlpha = a * .22 * (1 - ep); g.fillText(w.text, 0, 0); g.restore(); }
     g.globalAlpha = a;
+  }
+  if (style === 'duman' && p < 1){
+    for (let i = 0; i < n; i++){
+      const h1 = hash01(w.idx * 31 + i * 7), q = clamp(p * 1.25 - i / n * .25, 0, 1), eq = easeOut(q), rest = 1 - eq;
+      const ad = (i + 1 < n ? w.offs[i + 1] : w.w100) - w.offs[i], lx = w.offs[i] + ad / 2;
+      for (const k of [2, 1, 0]){
+        const dy = -rest * H * (.35 + .5 * h1) * (1 + k * .5), dx = Math.sin(age * 7 + i * 1.7 + k) * rest * H * .12 * (1 + k), s2 = 1 + rest * .35 * (1 + k * .6);
+        g.save(); g.translate(lx + dx, cy + dy); g.scale(s2, s2); g.translate(-lx, -cy);
+        g.globalAlpha = a * (k ? .16 * rest : eq); g.fillText(w.chars[i], w.offs[i], 0); g.restore();
+      }
+    }
+    return;
+  }
+  if (style === 'murekkep' && age < .7){
+    // lekeler kelime kutusunun içindeki sabit noktalardan farklı hızlarla büyür; sonunda hepsi bütün kelimeyi kaplar
+    const q = easeOut(clamp(age / .7, 0, 1)), R = Math.hypot(w.w100, H) * 1.02;
+    g.save(); g.beginPath();
+    for (let k = 0; k < 5; k++){
+      const x = hash01(w.idx * 17 + k * 3) * w.w100, y = -A + hash01(w.idx * 29 + k * 5 + 1) * H, r = R * Math.pow(q, 1 + hash01(w.idx + k * 11) * 1.6);
+      g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832);
+    }
+    g.clip(); g.fillText(w.text, 0, 0); g.restore();
+    return;
+  }
+  if (style === 'elyazisi' && age < dur * 2.2){
+    const tot = dur * 2.2, per = H * 7;
+    g.lineWidth = 2.6 / Math.max(.05, scr); g.lineJoin = g.lineCap = 'round'; g.strokeStyle = col;
+    for (let i = 0; i < n; i++){
+      const u = age / tot * (n + 1.5) - i; if (u <= 0) break;
+      const q = clamp(u / 1.5, 0, 1), f = clamp((u - 1) / .8, 0, 1);
+      if (f < 1){ g.globalAlpha = a * (1 - f * .6); g.setLineDash([per * q, per]); g.strokeText(w.chars[i], w.offs[i], 0); }
+      if (f > 0){ g.globalAlpha = a * f; g.fillText(w.chars[i], w.offs[i], 0); }
+    }
+    g.setLineDash([]);
+    return;
   }
   if (style === 'daktilo' && p < 1){
     const c = Math.min(n, Math.ceil(p * n * 1.1));
@@ -3243,21 +3302,67 @@ function drawIdleClock(T, dt, P, VW, VH){
     g.restore();
   }
   drawSpectrum(P, VW, VH, dt);
-  // sabit saat: ortada, dakika değişince yalnız rakam değişir; iki nokta saniyede bir yumuşak söner
+  // saat (ayar saatturu): dijital (ortada sabit rakamlar), analog (kadran), dev (saat üstte dakika altta, ekranı doldurur),
+  // flip (çevirmeli kartlar). Hepsinde dakika değişince yalnız rakam değişir; altta gün, tarih ve dakika içi ilerleme çizgisi.
   const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
   const big = fontStr(false).replace('100px', '1px'), small = fontStr(true).replace('100px', '1px');
-  const hs = m * .3 * (1 + kick * .015);
+  const ms = d.getMilliseconds() / 1000, kind = S.clockKind;
   g.textBaseline = 'alphabetic'; g.textAlign = 'center';
-  g.font = big.replace('1px', hs + 'px');
-  const wH = g.measureText(hh).width, wC = g.measureText(':').width, wM = g.measureText(mm).width;
-  const fit = Math.min(1, VW * .86 / (wH + wC + wM)), y0 = VH / 2 + hs * .3 * fit;
-  g.save(); g.translate(VW / 2, y0); g.scale(fit, fit);
-  const x0 = -(wH + wC + wM) / 2;
-  g.fillStyle = P.fg; g.textAlign = 'left';
-  g.fillText(hh, x0, 0); g.fillText(mm, x0 + wH + wC, 0);
-  const ms = d.getMilliseconds() / 1000, blink = .5 + .5 * Math.cos(ms * 6.2832);
-  g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink); g.fillText(':', x0 + wH, -hs * .04);
-  g.restore();
+  let y0, hs = m * .3 * (1 + kick * .015);
+  if (kind === 'analog'){
+    const R = m * .25 * (1 + kick * .01), cx = VW / 2, cy = VH / 2 - m * .05;
+    g.lineCap = 'round';
+    for (let i = 0; i < 60; i++){
+      const a = i / 60 * 6.2832, h5 = i % 5 === 0, r0 = R * (h5 ? .88 : .94);
+      g.strokeStyle = h5 ? P.fg : mixHex(P.bg, P.fg, .35); g.lineWidth = Math.max(1, m * (h5 ? .005 : .002));
+      g.beginPath(); g.moveTo(cx + Math.sin(a) * r0, cy - Math.cos(a) * r0); g.lineTo(cx + Math.sin(a) * R, cy - Math.cos(a) * R); g.stroke();
+    }
+    const hand = (a, len, lw, col) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(cx - Math.sin(a) * len * .12, cy + Math.cos(a) * len * .12); g.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); g.stroke(); };
+    const sec = d.getSeconds() + ms, min = d.getMinutes() + sec / 60, hr = d.getHours() % 12 + min / 60;
+    hand(hr / 12 * 6.2832, R * .5, m * .014, P.fg); hand(min / 60 * 6.2832, R * .78, m * .009, P.fg); hand(sec / 60 * 6.2832, R * .86, m * .004, P.ac);
+    g.fillStyle = P.ac; g.beginPath(); g.arc(cx, cy, m * .012, 0, 6.2832); g.fill();
+    g.lineCap = 'butt'; y0 = cy + R + m * .02;
+  } else if (kind === 'dev'){
+    // iki satır: saat yazı renginde, dakika vurgu renginde; birlikte ekran yüksekliğinin çoğunu kaplar
+    hs = Math.min(VH * .34, VW * .36) * (1 + kick * .012); g.font = big.replace('1px', hs + 'px');
+    const mt = g.measureText('00'), asc = mt.actualBoundingBoxAscent || hs * .72, gap = hs * .06, top = VH / 2 - asc - gap / 2 - m * .03;
+    g.fillStyle = P.fg; g.fillText(hh, VW / 2, top + asc);
+    g.fillStyle = contrast(P.ac, P.bg) >= 2 ? P.ac : P.fg; g.fillText(mm, VW / 2, top + asc * 2 + gap);
+    y0 = top + asc * 2 + gap + m * .012;
+  } else if (kind === 'flip'){
+    // dört kart; değişen rakamın kartı kısa sürede yatay ekseninde çevrilir
+    const chH = m * .3, chW = chH * .68, gap = chW * .1, mid = chW * .42, tot = chW * 4 + gap * 2 + mid, x0 = VW / 2 - tot / 2, cy = VH / 2 - m * .04;
+    const str = hh + mm; IDLE.flip = IDLE.flip || {s: str, at: [0, 0, 0, 0]};
+    for (let i = 0; i < 4; i++) if (IDLE.flip.s[i] !== str[i]) IDLE.flip.at[i] = nowS();
+    IDLE.flip.s = str;
+    g.font = big.replace('1px', chH * .78 + 'px');
+    const asc = g.measureText('0').actualBoundingBoxAscent || chH * .56, rad = chW * .08;
+    for (let i = 0; i < 4; i++){
+      const x = x0 + i * (chW + gap) + (i > 1 ? mid - gap : 0), q = clamp((nowS() - IDLE.flip.at[i]) / .45, 0, 1), sy = Math.max(.02, Math.abs(Math.cos(q * Math.PI)));
+      g.save(); g.translate(x + chW / 2, cy); g.scale(1, sy);
+      g.fillStyle = mixHex(P.bg, P.fg, .1); g.beginPath();
+      if (g.roundRect) g.roundRect(-chW / 2, -chH / 2, chW, chH, rad); else g.rect(-chW / 2, -chH / 2, chW, chH);
+      g.fill();
+      g.fillStyle = P.fg; g.fillText(str[i], 0, asc / 2);
+      g.fillStyle = P.bg; g.fillRect(-chW / 2, -Math.max(1, m * .002), chW, Math.max(2, m * .004)); // kartın orta çizgisi
+      g.restore();
+    }
+    const blink = .5 + .5 * Math.cos(ms * 6.2832), cxm = x0 + chW * 2 + gap + mid / 2, dr = m * .012;
+    g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink);
+    for (const sgn of [-1, 1]){ g.beginPath(); g.arc(cxm, cy + sgn * chH * .16, dr, 0, 6.2832); g.fill(); }
+    y0 = cy + chH / 2 + m * .01;
+  } else {
+    g.font = big.replace('1px', hs + 'px');
+    const wH = g.measureText(hh).width, wC = g.measureText(':').width, wM = g.measureText(mm).width;
+    const fit = Math.min(1, VW * .86 / (wH + wC + wM)); y0 = VH / 2 + hs * .3 * fit;
+    g.save(); g.translate(VW / 2, y0); g.scale(fit, fit);
+    const x0 = -(wH + wC + wM) / 2;
+    g.fillStyle = P.fg; g.textAlign = 'left';
+    g.fillText(hh, x0, 0); g.fillText(mm, x0 + wH + wC, 0);
+    const blink = .5 + .5 * Math.cos(ms * 6.2832);
+    g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink); g.fillText(':', x0 + wH, -hs * .04);
+    g.restore();
+  }
   // gün ve tarih
   const ds = m * .045; g.font = small.replace('1px', ds + 'px'); g.textAlign = 'center';
   g.fillStyle = mixHex(P.bg, P.fg, .7);
@@ -3512,6 +3617,10 @@ window.wallpaperPropertyListener = {
   applyUserProperties(p){
     let lay = false;
     if (p.tema){ S.theme = p.tema.value; lay = true; }
+    // özel tema: üç renk ve yazı tipi (tema "Özel" seçiliyken görünür etkisi olur)
+    for (const [k, f] of [['ozelzemin', 'bg'], ['ozelyazi', 'fg'], ['ozelvurgu', 'ac']]) if (p[k]){ const h = weHex(p[k].value); if (h){ THEMES.ozel[f] = [h]; lay = true; lastBg = ''; } }
+    if (p.ozelfont){ const F = OZEL_FONTS[p.ozelfont.value] || OZEL_FONTS.bigshoulders; THEMES.ozel.big = F[0]; THEMES.ozel.small = F[1]; lay = true; }
+    if (p.saatturu) S.clockKind = p.saatturu.value || 'dijital';
     // animasyon türü: kategori (benzer stiller bir arada); eski kayıtlı tek stil adı gelirse kategorisi seçilir
     if (p.stil){ const v = p.stil.value || 'oto'; S.cat = CATS[v] ? v : Object.keys(CATS).find(k => CATS[k].includes(v)) || ''; lay = true; }
     // arka plan: 3D sahneler ve 2D efektler tek listede; Otomatik her şarkıda birini seçer

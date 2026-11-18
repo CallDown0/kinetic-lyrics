@@ -28,6 +28,10 @@ window.wallpaperPropertyListener = {
   applyUserProperties(p){
     let lay = false;
     if (p.tema){ S.theme = p.tema.value; lay = true; }
+    // özel tema: üç renk ve yazı tipi (tema "Özel" seçiliyken görünür etkisi olur)
+    for (const [k, f] of [['ozelzemin', 'bg'], ['ozelyazi', 'fg'], ['ozelvurgu', 'ac']]) if (p[k]){ const h = weHex(p[k].value); if (h){ THEMES.ozel[f] = [h]; lay = true; lastBg = ''; } }
+    if (p.ozelfont){ const F = OZEL_FONTS[p.ozelfont.value] || OZEL_FONTS.bigshoulders; THEMES.ozel.big = F[0]; THEMES.ozel.small = F[1]; lay = true; }
+    if (p.saatturu) S.clockKind = p.saatturu.value || 'dijital';
     // animasyon türü: kategori (benzer stiller bir arada); eski kayıtlı tek stil adı gelirse kategorisi seçilir
     if (p.stil){ const v = p.stil.value || 'oto'; S.cat = CATS[v] ? v : Object.keys(CATS).find(k => CATS[k].includes(v)) || ''; lay = true; }
     // arka plan: 3D sahneler ve 2D efektler tek listede; Otomatik her şarkıda birini seçer

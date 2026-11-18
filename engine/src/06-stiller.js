@@ -41,9 +41,29 @@ const THEMES = {
   asit:     {bg:['#C6FF3D'], fg:['#0A0A0A'], ac:['#5B21FF'], big:{f:'Big Shoulders Display', w:900}, small:{f:'Big Shoulders Display', w:500}}
 };
 const THEME_KEYS = Object.keys(THEMES);
+// özel tema (ayar tema = ozel): renkler ve yazı tipi ayarlardan gelir; otomatik seçime girmez
+const OZEL_FONTS = {
+  bigshoulders: [{f:'Big Shoulders Display', w:900}, {f:'Big Shoulders Display', w:500}],
+  anybody:      [{f:'Anybody', w:800}, {f:'Anybody', w:400}],
+  unbounded:    [{f:'Unbounded', w:800}, {f:'Unbounded', w:400}],
+  serif:        [{f:'Instrument Serif', w:400}, {f:'Instrument Serif', w:400, it:true}]
+};
+THEMES.ozel = {bg:['#0E0F12'], fg:['#ECE9E2'], ac:['#E8553A'], big: OZEL_FONTS.bigshoulders[0], small: OZEL_FONTS.bigshoulders[1]};
+// Wallpaper Engine renk değeri "r g b" (0–1) → #rrggbb
+function weHex(v){ const c = String(v || '').trim().split(/\s+/).map(Number); if (c.length < 3 || c.some(x => !isFinite(x))) return null; return '#' + c.slice(0, 3).map(x => Math.round(clamp(x, 0, 1) * 255).toString(16).padStart(2, '0')).join(''); }
+// otomatik temada şarkının türü biliniyorsa (Wallpaper Engine her oynatıcıdan almaz) yazı tipi ona uygun temalardan seçilir
+const GENRE_TH = [
+  [/metal|rock|punk|grunge/, ['manset', 'asit', 'gece']],
+  [/hip.?hop|rap|trap|drill/, ['manset', 'neon', 'kobalt']],
+  [/electro|dance|edm|house|techno|synth|disco/, ['neon', 'kobalt', 'pop']],
+  [/jazz|caz|classical|klasik|blues|folk|acoustic|akustik|soul|türkü/, ['zarif', 'orman', 'kontrast']],
+  [/pop/, ['pop', 'beyaz', 'kontrast', 'orman']]
+];
 let TH = THEMES.manset, TH_KEY = 'manset';
 function pickTheme(){
-  TH_KEY = S.theme === 'oto' ? THEME_KEYS[strHash(M.key || 'idle') % THEME_KEYS.length] : (THEMES[S.theme] ? S.theme : 'manset');
+  let pool = THEME_KEYS;
+  const gn = (M.genres || '').toLowerCase(); if (gn){ const m = GENRE_TH.find(x => x[0].test(gn)); if (m) pool = m[1]; }
+  TH_KEY = S.theme === 'oto' ? pool[strHash(M.key || 'idle') % pool.length] : (THEMES[S.theme] ? S.theme : 'manset');
   TH = THEMES[TH_KEY];
 }
 function basePal(li){
@@ -109,6 +129,9 @@ const STYLES = {
   kilit:   {tier: 1, tier2: 2}, // editoryal kilit: dev küçük harfli ana kelime, üstünde küçük satır, altta imza
   hiz:     {tier: 2, tier2: 1}, // kelime hızla kayıp gelir: çizgi film gibi uzar, arkasında hız çizgileri
   origami: {tier: 1, tier2: 0}, // harfler kâğıt gibi: önce alt yarı kalkar, sonra üst yarı katlanmışken açılır
+  duman:   {tier: 0, tier2: 1}, // harfler yukarıda dalgalanan soluk kopyalardan süzülerek yerine iner
+  murekkep:{tier: 1, tier2: 0}, // kelime, birkaç noktadan yayılan mürekkep lekelerinin içinden görünür
+  elyazisi:{tier: 0, tier2: 1}, // harflerin konturu sırayla çizilir, çizilen harf ardından dolar
   // GSAP 3D stilleri (DOM katmanı, bkz. G3STYLE)
   kup:     {tier: 2, tier2: 1, single: true, dom: true, noIcon: true}, // kelimeler dönen küpün yüzlerinde, küp kelime başına yuvarlanır
   koridor: {tier: 2, tier2: 1, dom: true}, // harfler derinden sırayla uçar, biten satır kameranın yanından geçer
@@ -125,16 +148,16 @@ if (!HAS_G3) for (const k in STYLES) if (STYLES[k].dom) STYLES[k].auto = false;
 const STYLE_KEYS = Object.keys(STYLES);
 // menüdeki animasyon türleri: benzer stiller tek kategoride (seçilince otomatik seçim yalnız bu havuzdan yapılır)
 const CATS = {
-  sade:  ['sakin', 'daktilo', 'dolan', 'maske', 'kontur', 'sarkac'],
+  sade:  ['sakin', 'daktilo', 'dolan', 'maske', 'kontur', 'sarkac', 'duman', 'elyazisi'],
   kayan: ['poster', 'dusen', 'hiz', 'derin', 'esnek'],
-  harf:  ['kabarcik', 'rulet', 'coz', 'neon', 'origami', 'dilim', 'tabela'],
+  harf:  ['kabarcik', 'rulet', 'coz', 'neon', 'origami', 'dilim', 'tabela', 'murekkep'],
   uc:    ['donus', 'halka', 'perspektif', 'bukum', 'kup', 'koridor', 'sayfa', 'sarmal', 'toplanma', 'pano', 'yildiz', 'arazi'],
   sert:  ['glitch', 'kesik', 'patlama', 'tekrar', 'dev', 'serit', 'kilit']
 };
 const catPool = () => S.cat && CATS[S.cat] ? CATS[S.cat] : null;
 // kelime başına karışık animasyon: satırın stili yerleşimi ve kamerayı belirler, her kelime girişini bu havuzdan ayrı seçer
 // (dolan, dev, tekrar, kilit, rap, halka, şerit, perspektif, büküm satırın bütününe bağlı olduğu için karışmaz)
-const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'esnek', 'kabarcik', 'rulet', 'sarkac', 'dilim', 'neon', 'coz', 'origami', 'kesik', 'glitch', 'patlama', 'maske', 'kontur', 'donus'];
+const MIX = ['sakin', 'daktilo', 'poster', 'tabela', 'dusen', 'derin', 'hiz', 'esnek', 'kabarcik', 'rulet', 'sarkac', 'dilim', 'neon', 'coz', 'origami', 'kesik', 'glitch', 'patlama', 'maske', 'kontur', 'donus', 'duman', 'murekkep', 'elyazisi'];
 // nakarat: gösterişli stiller; aynı nakarat satırı şarkı boyunca hep aynı stille gelir (şarkının yapısı hissedilir)
 const CHORUS_STYLES = ['dev', 'tekrar', 'serit', 'halka', 'donus', 'glitch', 'kesik', 'bukum', 'patlama', 'derin', 'esnek', 'dilim', 'neon', 'kilit', 'hiz', 'kup', 'koridor', 'sarmal', 'toplanma', 'yildiz'];
 let prevStyle = '', USE = {}, useKey = '', CHS = {}; // USE: şarkı boyunca stil kullanım sayıları, CHS: nakarat satırı → stil

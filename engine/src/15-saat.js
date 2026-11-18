@@ -44,21 +44,67 @@ function drawIdleClock(T, dt, P, VW, VH){
     g.restore();
   }
   drawSpectrum(P, VW, VH, dt);
-  // sabit saat: ortada, dakika değişince yalnız rakam değişir; iki nokta saniyede bir yumuşak söner
+  // saat (ayar saatturu): dijital (ortada sabit rakamlar), analog (kadran), dev (saat üstte dakika altta, ekranı doldurur),
+  // flip (çevirmeli kartlar). Hepsinde dakika değişince yalnız rakam değişir; altta gün, tarih ve dakika içi ilerleme çizgisi.
   const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
   const big = fontStr(false).replace('100px', '1px'), small = fontStr(true).replace('100px', '1px');
-  const hs = m * .3 * (1 + kick * .015);
+  const ms = d.getMilliseconds() / 1000, kind = S.clockKind;
   g.textBaseline = 'alphabetic'; g.textAlign = 'center';
-  g.font = big.replace('1px', hs + 'px');
-  const wH = g.measureText(hh).width, wC = g.measureText(':').width, wM = g.measureText(mm).width;
-  const fit = Math.min(1, VW * .86 / (wH + wC + wM)), y0 = VH / 2 + hs * .3 * fit;
-  g.save(); g.translate(VW / 2, y0); g.scale(fit, fit);
-  const x0 = -(wH + wC + wM) / 2;
-  g.fillStyle = P.fg; g.textAlign = 'left';
-  g.fillText(hh, x0, 0); g.fillText(mm, x0 + wH + wC, 0);
-  const ms = d.getMilliseconds() / 1000, blink = .5 + .5 * Math.cos(ms * 6.2832);
-  g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink); g.fillText(':', x0 + wH, -hs * .04);
-  g.restore();
+  let y0, hs = m * .3 * (1 + kick * .015);
+  if (kind === 'analog'){
+    const R = m * .25 * (1 + kick * .01), cx = VW / 2, cy = VH / 2 - m * .05;
+    g.lineCap = 'round';
+    for (let i = 0; i < 60; i++){
+      const a = i / 60 * 6.2832, h5 = i % 5 === 0, r0 = R * (h5 ? .88 : .94);
+      g.strokeStyle = h5 ? P.fg : mixHex(P.bg, P.fg, .35); g.lineWidth = Math.max(1, m * (h5 ? .005 : .002));
+      g.beginPath(); g.moveTo(cx + Math.sin(a) * r0, cy - Math.cos(a) * r0); g.lineTo(cx + Math.sin(a) * R, cy - Math.cos(a) * R); g.stroke();
+    }
+    const hand = (a, len, lw, col) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(cx - Math.sin(a) * len * .12, cy + Math.cos(a) * len * .12); g.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); g.stroke(); };
+    const sec = d.getSeconds() + ms, min = d.getMinutes() + sec / 60, hr = d.getHours() % 12 + min / 60;
+    hand(hr / 12 * 6.2832, R * .5, m * .014, P.fg); hand(min / 60 * 6.2832, R * .78, m * .009, P.fg); hand(sec / 60 * 6.2832, R * .86, m * .004, P.ac);
+    g.fillStyle = P.ac; g.beginPath(); g.arc(cx, cy, m * .012, 0, 6.2832); g.fill();
+    g.lineCap = 'butt'; y0 = cy + R + m * .02;
+  } else if (kind === 'dev'){
+    // iki satır: saat yazı renginde, dakika vurgu renginde; birlikte ekran yüksekliğinin çoğunu kaplar
+    hs = Math.min(VH * .34, VW * .36) * (1 + kick * .012); g.font = big.replace('1px', hs + 'px');
+    const mt = g.measureText('00'), asc = mt.actualBoundingBoxAscent || hs * .72, gap = hs * .06, top = VH / 2 - asc - gap / 2 - m * .03;
+    g.fillStyle = P.fg; g.fillText(hh, VW / 2, top + asc);
+    g.fillStyle = contrast(P.ac, P.bg) >= 2 ? P.ac : P.fg; g.fillText(mm, VW / 2, top + asc * 2 + gap);
+    y0 = top + asc * 2 + gap + m * .012;
+  } else if (kind === 'flip'){
+    // dört kart; değişen rakamın kartı kısa sürede yatay ekseninde çevrilir
+    const chH = m * .3, chW = chH * .68, gap = chW * .1, mid = chW * .42, tot = chW * 4 + gap * 2 + mid, x0 = VW / 2 - tot / 2, cy = VH / 2 - m * .04;
+    const str = hh + mm; IDLE.flip = IDLE.flip || {s: str, at: [0, 0, 0, 0]};
+    for (let i = 0; i < 4; i++) if (IDLE.flip.s[i] !== str[i]) IDLE.flip.at[i] = nowS();
+    IDLE.flip.s = str;
+    g.font = big.replace('1px', chH * .78 + 'px');
+    const asc = g.measureText('0').actualBoundingBoxAscent || chH * .56, rad = chW * .08;
+    for (let i = 0; i < 4; i++){
+      const x = x0 + i * (chW + gap) + (i > 1 ? mid - gap : 0), q = clamp((nowS() - IDLE.flip.at[i]) / .45, 0, 1), sy = Math.max(.02, Math.abs(Math.cos(q * Math.PI)));
+      g.save(); g.translate(x + chW / 2, cy); g.scale(1, sy);
+      g.fillStyle = mixHex(P.bg, P.fg, .1); g.beginPath();
+      if (g.roundRect) g.roundRect(-chW / 2, -chH / 2, chW, chH, rad); else g.rect(-chW / 2, -chH / 2, chW, chH);
+      g.fill();
+      g.fillStyle = P.fg; g.fillText(str[i], 0, asc / 2);
+      g.fillStyle = P.bg; g.fillRect(-chW / 2, -Math.max(1, m * .002), chW, Math.max(2, m * .004)); // kartın orta çizgisi
+      g.restore();
+    }
+    const blink = .5 + .5 * Math.cos(ms * 6.2832), cxm = x0 + chW * 2 + gap + mid / 2, dr = m * .012;
+    g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink);
+    for (const sgn of [-1, 1]){ g.beginPath(); g.arc(cxm, cy + sgn * chH * .16, dr, 0, 6.2832); g.fill(); }
+    y0 = cy + chH / 2 + m * .01;
+  } else {
+    g.font = big.replace('1px', hs + 'px');
+    const wH = g.measureText(hh).width, wC = g.measureText(':').width, wM = g.measureText(mm).width;
+    const fit = Math.min(1, VW * .86 / (wH + wC + wM)); y0 = VH / 2 + hs * .3 * fit;
+    g.save(); g.translate(VW / 2, y0); g.scale(fit, fit);
+    const x0 = -(wH + wC + wM) / 2;
+    g.fillStyle = P.fg; g.textAlign = 'left';
+    g.fillText(hh, x0, 0); g.fillText(mm, x0 + wH + wC, 0);
+    const blink = .5 + .5 * Math.cos(ms * 6.2832);
+    g.fillStyle = mixHex(P.bg, P.ac, .35 + .65 * blink); g.fillText(':', x0 + wH, -hs * .04);
+    g.restore();
+  }
   // gün ve tarih
   const ds = m * .045; g.font = small.replace('1px', ds + 'px'); g.textAlign = 'center';
   g.fillStyle = mixHex(P.bg, P.fg, .7);

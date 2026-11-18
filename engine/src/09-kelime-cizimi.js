@@ -173,6 +173,41 @@ function drawWord0(b, w, T, P, st, alpha, e, kick, swing){
     for (const k of [1, 2]){ const s2 = 1 + (1 - ep) * .12 * k; g.save(); g.translate(cx, cy); g.scale(s2, s2); g.translate(-cx, -cy); g.globalAlpha = a * .22 * (1 - ep); g.fillText(w.text, 0, 0); g.restore(); }
     g.globalAlpha = a;
   }
+  if (style === 'duman' && p < 1){
+    for (let i = 0; i < n; i++){
+      const h1 = hash01(w.idx * 31 + i * 7), q = clamp(p * 1.25 - i / n * .25, 0, 1), eq = easeOut(q), rest = 1 - eq;
+      const ad = (i + 1 < n ? w.offs[i + 1] : w.w100) - w.offs[i], lx = w.offs[i] + ad / 2;
+      for (const k of [2, 1, 0]){
+        const dy = -rest * H * (.35 + .5 * h1) * (1 + k * .5), dx = Math.sin(age * 7 + i * 1.7 + k) * rest * H * .12 * (1 + k), s2 = 1 + rest * .35 * (1 + k * .6);
+        g.save(); g.translate(lx + dx, cy + dy); g.scale(s2, s2); g.translate(-lx, -cy);
+        g.globalAlpha = a * (k ? .16 * rest : eq); g.fillText(w.chars[i], w.offs[i], 0); g.restore();
+      }
+    }
+    return;
+  }
+  if (style === 'murekkep' && age < .7){
+    // lekeler kelime kutusunun içindeki sabit noktalardan farklı hızlarla büyür; sonunda hepsi bütün kelimeyi kaplar
+    const q = easeOut(clamp(age / .7, 0, 1)), R = Math.hypot(w.w100, H) * 1.02;
+    g.save(); g.beginPath();
+    for (let k = 0; k < 5; k++){
+      const x = hash01(w.idx * 17 + k * 3) * w.w100, y = -A + hash01(w.idx * 29 + k * 5 + 1) * H, r = R * Math.pow(q, 1 + hash01(w.idx + k * 11) * 1.6);
+      g.moveTo(x + r, y); g.arc(x, y, r, 0, 6.2832);
+    }
+    g.clip(); g.fillText(w.text, 0, 0); g.restore();
+    return;
+  }
+  if (style === 'elyazisi' && age < dur * 2.2){
+    const tot = dur * 2.2, per = H * 7;
+    g.lineWidth = 2.6 / Math.max(.05, scr); g.lineJoin = g.lineCap = 'round'; g.strokeStyle = col;
+    for (let i = 0; i < n; i++){
+      const u = age / tot * (n + 1.5) - i; if (u <= 0) break;
+      const q = clamp(u / 1.5, 0, 1), f = clamp((u - 1) / .8, 0, 1);
+      if (f < 1){ g.globalAlpha = a * (1 - f * .6); g.setLineDash([per * q, per]); g.strokeText(w.chars[i], w.offs[i], 0); }
+      if (f > 0){ g.globalAlpha = a * f; g.fillText(w.chars[i], w.offs[i], 0); }
+    }
+    g.setLineDash([]);
+    return;
+  }
   if (style === 'daktilo' && p < 1){
     const c = Math.min(n, Math.ceil(p * n * 1.1));
     for (let i = 0; i < c; i++) g.fillText(w.chars[i], w.offs[i], 0);

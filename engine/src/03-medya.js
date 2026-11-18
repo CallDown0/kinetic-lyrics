@@ -21,6 +21,7 @@ function onProps(e){
   const title = (e && e.title) || '', artist = (e && e.artist) || '';
   const key = artist + '\u0001' + title;
   if (key === M.key) return;
+  M.genres = (e && e.genres) || '';
   // yeni şarkı: renkler/tema değişir. Saat ekranındaysak arama bitene dek saat eski renklerinde kalır (CLK_HOLD),
   // sözler gelince ya da söz yoksa tek geçişle yeni şarkıya geçilir (art arda iki geçiş olmasın)
   if (mode === 'idle' && S.clock && title) CLK_HOLD = CLK_HOLD || pal(0); else screenFade();

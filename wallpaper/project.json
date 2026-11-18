@@ -90,6 +90,10 @@
 					{
 						"label": "Asit",
 						"value": "asit"
+					},
+					{
+						"label": "Özel (renkleri aşağıdan seç)",
+						"value": "ozel"
 					}
 				]
 			},
@@ -316,7 +320,8 @@
 				"max": 100,
 				"step": 1,
 				"fraction": false,
-				"editable": true
+				"editable": true,
+				"condition": "sinema.value == true"
 			},
 			"parcacik": {
 				"order": 240,
@@ -409,6 +414,77 @@
 				"text": "Bu şarkının tıklama senkronunu sıfırla",
 				"type": "bool",
 				"value": false
+			},
+			"ozelzemin": {
+				"order": 101,
+				"text": "Özel tema: zemin rengi",
+				"type": "color",
+				"value": "0.055 0.059 0.071",
+				"condition": "tema.value == 'ozel'"
+			},
+			"ozelyazi": {
+				"order": 102,
+				"text": "Özel tema: yazı rengi",
+				"type": "color",
+				"value": "0.925 0.914 0.886",
+				"condition": "tema.value == 'ozel'"
+			},
+			"ozelvurgu": {
+				"order": 103,
+				"text": "Özel tema: vurgu rengi",
+				"type": "color",
+				"value": "0.910 0.333 0.227",
+				"condition": "tema.value == 'ozel'"
+			},
+			"ozelfont": {
+				"order": 104,
+				"text": "Özel tema: yazı tipi",
+				"type": "combo",
+				"value": "bigshoulders",
+				"condition": "tema.value == 'ozel'",
+				"options": [
+					{
+						"label": "Big Shoulders (dar, afiş)",
+						"value": "bigshoulders"
+					},
+					{
+						"label": "Anybody (geniş, modern)",
+						"value": "anybody"
+					},
+					{
+						"label": "Unbounded (yuvarlak, kalın)",
+						"value": "unbounded"
+					},
+					{
+						"label": "Instrument Serif (zarif)",
+						"value": "serif"
+					}
+				]
+			},
+			"saatturu": {
+				"order": 401,
+				"text": "Saat türü",
+				"type": "combo",
+				"value": "dijital",
+				"condition": "saat.value == true",
+				"options": [
+					{
+						"label": "Dijital",
+						"value": "dijital"
+					},
+					{
+						"label": "Analog",
+						"value": "analog"
+					},
+					{
+						"label": "Dev rakamlar",
+						"value": "dev"
+					},
+					{
+						"label": "Çevirmeli kartlar",
+						"value": "flip"
+					}
+				]
 			}
 		},
 		"supportsaudioprocessing": true
