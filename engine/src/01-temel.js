@@ -30,6 +30,14 @@ function guessLang(text){
 const cv = $('cv'), g = cv.getContext('2d');
 // 3D yazı stilleri: GSAP + three.js + troika + gömülü fontlar gerekir (biri yüklenemezse bu stiller kapalı)
 const HAS_G3 = !!(window.gsap && window.THREE && window.PP && window.TT && window.KKFONTS);
+// 2D yazı da gömülü fontları kullanır (fonts.js): tema fontları için internet gerekmez. Tarayıcı fontu ilk istendiğinde çözer.
+if (window.KKFONTS && window.FontFace){
+  const FAM = {anybody: 'Anybody', bigshouldersdisplay: 'Big Shoulders Display', instrumentserif: 'Instrument Serif', unbounded: 'Unbounded'};
+  for (const k in window.KKFONTS){
+    const m = /^(.+)-(\d+)(-i)?$/.exec(k), fam = m && FAM[m[1]]; if (!fam) continue;
+    try { document.fonts.add(new FontFace(fam, 'url(' + window.KKFONTS[k] + ')', {weight: m[2], style: m[3] ? 'italic' : 'normal'})); } catch(_){}
+  }
+}
 let snapCam = true;
 let aspClass = '', relayoutHook = null; // relayout aşağıda tanımlanınca bağlanır
 function resize(){
