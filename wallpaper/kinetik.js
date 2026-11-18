@@ -219,7 +219,30 @@ async function lrclib(params){
   } finally { clearTimeout(to); }
 }
 function cacheGet(k){ try { const v = JSON.parse(localStorage.getItem('kk4:' + k)); if (v && (v.lrc || Date.now() - v.ts < 864e5)) return v; } catch(e){} return null; }
-function cacheSet(k, v){ try { localStorage.setItem('kk4:' + k, JSON.stringify(Object.assign({ts: Date.now()}, v))); } catch(e){} }
+function cacheSet(k, v){
+  const d = JSON.stringify(Object.assign({ts: Date.now()}, v));
+  try { localStorage.setItem('kk4:' + k, d); cachePrune(CACHE_MAX); }
+  catch(e){ // depo dolu: eski şarkılar atılır, bir kez daha denenir
+    cachePrune(CACHE_MAX >> 1); try { localStorage.setItem('kk4:' + k, d); } catch(_){} }
+}
+// Önbellek sınırı: en çok CACHE_MAX şarkının sözü saklanır; aşılınca en eskiler çevirileriyle birlikte silinir.
+// Zamanlı sözü olmayan kayıtlar bir gün sonra zaten geçersizdir (cacheGet), onlar da atılır.
+// Elle yapılan senkron düzeltmeleri (kk2a, kk4o) küçüktür ve emek ister: silinmez.
+const CACHE_MAX = 300;
+function cachePrune(max){
+  try {
+    const all = [];
+    for (let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i); if (!k || !k.startsWith('kk4:')) continue;
+      let ts = 0, dead = false;
+      try { const v = JSON.parse(localStorage.getItem(k)); ts = v && v.ts || 0; dead = !v || (!v.lrc && Date.now() - ts > 864e5); } catch(_){ dead = true; }
+      all.push({k: k.slice(4), ts, dead});
+    }
+    all.sort((a, b) => a.ts - b.ts);
+    const cut = Math.max(0, all.length - max);
+    all.forEach((x, i) => { if (i < cut){ localStorage.removeItem('kk4:' + x.k); localStorage.removeItem('kk4t:' + x.k); } else if (x.dead) localStorage.removeItem('kk4:' + x.k); });
+  } catch(_){}
+}
 async function findLyrics(key){
   const c = cacheGet(key); if (c) return c;
   const t0 = cleanTitle(M.title), a0 = cleanArtist(M.artist);
@@ -3376,7 +3399,7 @@ function resume(why, gap){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resume('vis'); });
 
 /* ================= Döngü ================= */
-let last = 0, perf = 0, slow = 0;
+let last = 0, perf = 0, slow = 0, fast = 0, resWait = 600, resUpAt = -1e9; // resWait: yükseltmeden önce rahat geçen kare sayısı
 // tek bir karede çıkan hata döngüyü öldürmesin: sonraki kare önceden istenir, hata kkdiag'a yazılır
 let ERRN = 0, ERRLAST = '', FRN = 0;
 // tanı: saniyede bir son durum (kare sayısı 0 ise döngü durmuş / WE askıya almış demektir)
@@ -3406,7 +3429,17 @@ function frameBody(ts){
   glFrame(T, dt); // 2D kare tamamlandıktan sonra (efektler geçişleri de kapsasın)
   // kare çok uzun sürerse çözünürlüğü kademeli düşür (akıcılık önce)
   perf = perf * .97 + (performance.now() - t0) * .03;
-  if (perf > 9 && S.res > .55 && ++slow > 90){ S.res = Math.max(.55, S.res - .15); slow = 0; perf = 0; resize(); }
+  if (perf > 9 && S.res > .55){
+    if (++slow > 90){
+      // yükseltmeden hemen sonra yeniden düşüyorsa bir sonraki yükseltme denemesi iki kat bekler (gidip gelmesin)
+      if (ts - resUpAt < 20000) resWait = Math.min(resWait * 2, 36000);
+      S.res = Math.max(.55, S.res - .15); slow = fast = 0; perf = 0; resize();
+    }
+  } else slow = 0;
+  // yük geçince çözünürlük kademeli geri yükselir: yeni piksel sayısıyla tahmini kare süresi de rahat olmalı
+  const up = Math.min(1, S.res + .15);
+  if (S.res < 1 && perf > 0 && perf * (up / S.res) ** 2 < 6){ if (++fast > resWait){ S.res = up; fast = slow = 0; perf = 0; resUpAt = ts; resize(); } }
+  else fast = 0;
 }
 applyLook(); ensureFont(); setMode('idle');
 requestAnimationFrame(frame);

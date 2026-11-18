@@ -10,7 +10,7 @@ function resume(why, gap){
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resume('vis'); });
 
 /* ================= Döngü ================= */
-let last = 0, perf = 0, slow = 0;
+let last = 0, perf = 0, slow = 0, fast = 0, resWait = 600, resUpAt = -1e9; // resWait: yükseltmeden önce rahat geçen kare sayısı
 // tek bir karede çıkan hata döngüyü öldürmesin: sonraki kare önceden istenir, hata kkdiag'a yazılır
 let ERRN = 0, ERRLAST = '', FRN = 0;
 // tanı: saniyede bir son durum (kare sayısı 0 ise döngü durmuş / WE askıya almış demektir)
@@ -40,7 +40,17 @@ function frameBody(ts){
   glFrame(T, dt); // 2D kare tamamlandıktan sonra (efektler geçişleri de kapsasın)
   // kare çok uzun sürerse çözünürlüğü kademeli düşür (akıcılık önce)
   perf = perf * .97 + (performance.now() - t0) * .03;
-  if (perf > 9 && S.res > .55 && ++slow > 90){ S.res = Math.max(.55, S.res - .15); slow = 0; perf = 0; resize(); }
+  if (perf > 9 && S.res > .55){
+    if (++slow > 90){
+      // yükseltmeden hemen sonra yeniden düşüyorsa bir sonraki yükseltme denemesi iki kat bekler (gidip gelmesin)
+      if (ts - resUpAt < 20000) resWait = Math.min(resWait * 2, 36000);
+      S.res = Math.max(.55, S.res - .15); slow = fast = 0; perf = 0; resize();
+    }
+  } else slow = 0;
+  // yük geçince çözünürlük kademeli geri yükselir: yeni piksel sayısıyla tahmini kare süresi de rahat olmalı
+  const up = Math.min(1, S.res + .15);
+  if (S.res < 1 && perf > 0 && perf * (up / S.res) ** 2 < 6){ if (++fast > resWait){ S.res = up; fast = slow = 0; perf = 0; resUpAt = ts; resize(); } }
+  else fast = 0;
 }
 applyLook(); ensureFont(); setMode('idle');
 requestAnimationFrame(frame);

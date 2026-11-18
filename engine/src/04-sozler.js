@@ -11,7 +11,30 @@ async function lrclib(params){
   } finally { clearTimeout(to); }
 }
 function cacheGet(k){ try { const v = JSON.parse(localStorage.getItem('kk4:' + k)); if (v && (v.lrc || Date.now() - v.ts < 864e5)) return v; } catch(e){} return null; }
-function cacheSet(k, v){ try { localStorage.setItem('kk4:' + k, JSON.stringify(Object.assign({ts: Date.now()}, v))); } catch(e){} }
+function cacheSet(k, v){
+  const d = JSON.stringify(Object.assign({ts: Date.now()}, v));
+  try { localStorage.setItem('kk4:' + k, d); cachePrune(CACHE_MAX); }
+  catch(e){ // depo dolu: eski şarkılar atılır, bir kez daha denenir
+    cachePrune(CACHE_MAX >> 1); try { localStorage.setItem('kk4:' + k, d); } catch(_){} }
+}
+// Önbellek sınırı: en çok CACHE_MAX şarkının sözü saklanır; aşılınca en eskiler çevirileriyle birlikte silinir.
+// Zamanlı sözü olmayan kayıtlar bir gün sonra zaten geçersizdir (cacheGet), onlar da atılır.
+// Elle yapılan senkron düzeltmeleri (kk2a, kk4o) küçüktür ve emek ister: silinmez.
+const CACHE_MAX = 300;
+function cachePrune(max){
+  try {
+    const all = [];
+    for (let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i); if (!k || !k.startsWith('kk4:')) continue;
+      let ts = 0, dead = false;
+      try { const v = JSON.parse(localStorage.getItem(k)); ts = v && v.ts || 0; dead = !v || (!v.lrc && Date.now() - ts > 864e5); } catch(_){ dead = true; }
+      all.push({k: k.slice(4), ts, dead});
+    }
+    all.sort((a, b) => a.ts - b.ts);
+    const cut = Math.max(0, all.length - max);
+    all.forEach((x, i) => { if (i < cut){ localStorage.removeItem('kk4:' + x.k); localStorage.removeItem('kk4t:' + x.k); } else if (x.dead) localStorage.removeItem('kk4:' + x.k); });
+  } catch(_){}
+}
 async function findLyrics(key){
   const c = cacheGet(key); if (c) return c;
   const t0 = cleanTitle(M.title), a0 = cleanArtist(M.artist);
