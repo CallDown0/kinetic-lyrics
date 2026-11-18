@@ -3,6 +3,12 @@
 	"file": "index.html",
 	"general": {
 		"properties": {
+			"tani": {
+				"order": 530,
+				"text": "Tanı kayıtları (sorun ararken aç)",
+				"type": "bool",
+				"value": false
+			},
 			"tema": {
 				"order": 100,
 				"text": "Tema",

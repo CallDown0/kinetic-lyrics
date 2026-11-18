@@ -12,9 +12,10 @@ const cleanTitle = s => (s || '')
   .replace(/\s+(ft\.?|feat\.?|featuring)\s.*$/i, '').replace(/\s*\|.*$/, '').trim();
 const cleanArtist = s => (s || '').replace(/\s*-\s*Topic$/i, '').replace(/VEVO$/i, '').replace(/\s+Official$/i, '').trim();
 
-// tanı kaydı: WE'den gelen medya olayları (son 60) yerel kayıtta 'kkdiag' anahtarında; diskteki leveldb'den okunur
+// tanı kaydı: WE'den gelen medya olayları (son 60) yerel kayıtta 'kkdiag' anahtarında; diskteki leveldb'den okunur.
+// Yalnız "Tanı kayıtları" ayarı açıkken tutulur (varsayılan kapalı).
 const DIAG = [];
-function diag(k, o){ DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +songT().toFixed(2), pl: M.playing ? 1 : 0}, o)); if (DIAG.length > 60) DIAG.shift(); try { localStorage.setItem('kkdiag', JSON.stringify(DIAG)); } catch(_){} }
+function diag(k, o){ if (!S.diag) return; DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +songT().toFixed(2), pl: M.playing ? 1 : 0}, o)); if (DIAG.length > 60) DIAG.shift(); try { localStorage.setItem('kkdiag', JSON.stringify(DIAG)); } catch(_){} }
 function onProps(e){
   diag('pr', {ti: (e && e.title || '').slice(0, 30)});
   const title = (e && e.title) || '', artist = (e && e.artist) || '';

@@ -21,7 +21,9 @@ const APP = !!(window.KK && window.KK.uygulama);
 
 const S = { theme:'oto', res:1, cat:'', move:.7, shake:.5, rot:.55, upper:true, off:0, info:true, status:true, clock:true, particles:true, bg:'oto', semantic:true, breath:true, poster:true, mouse:true, rap:true,
   exit:'oto', wordMix:true, layout:'oto', icons:true, hold:true, freq:true, beatcut:true, wipe:true, split:true, bg3:'oto', cine:true, cineAmt:.6,
-  ai:true }; // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
+  // ai: yerel yapay zeka servisi (kelime senkronu); Wallpaper Engine'de "yapayzeka" özelliğiyle gelir, varsayılanı orada kapalı
+  // diag: tanı kayıtları (kkdiag, kkhb); "tani" özelliğiyle açılır
+  ai:true, diag:false };
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.shake = 0;
 let UPL = 'tr'; // sözlerin dili (büyük/küçük harf kuralı); setMode sözlerden tahmin eder
 const up = s => S.upper ? s.toLocaleUpperCase(UPL) : s;
@@ -110,9 +112,10 @@ const cleanTitle = s => (s || '')
   .replace(/\s+(ft\.?|feat\.?|featuring)\s.*$/i, '').replace(/\s*\|.*$/, '').trim();
 const cleanArtist = s => (s || '').replace(/\s*-\s*Topic$/i, '').replace(/VEVO$/i, '').replace(/\s+Official$/i, '').trim();
 
-// tanı kaydı: WE'den gelen medya olayları (son 60) yerel kayıtta 'kkdiag' anahtarında; diskteki leveldb'den okunur
+// tanı kaydı: WE'den gelen medya olayları (son 60) yerel kayıtta 'kkdiag' anahtarında; diskteki leveldb'den okunur.
+// Yalnız "Tanı kayıtları" ayarı açıkken tutulur (varsayılan kapalı).
 const DIAG = [];
-function diag(k, o){ DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +songT().toFixed(2), pl: M.playing ? 1 : 0}, o)); if (DIAG.length > 60) DIAG.shift(); try { localStorage.setItem('kkdiag', JSON.stringify(DIAG)); } catch(_){} }
+function diag(k, o){ if (!S.diag) return; DIAG.push(Object.assign({k, at: +nowS().toFixed(2), est: +songT().toFixed(2), pl: M.playing ? 1 : 0}, o)); if (DIAG.length > 60) DIAG.shift(); try { localStorage.setItem('kkdiag', JSON.stringify(DIAG)); } catch(_){} }
 function onProps(e){
   diag('pr', {ti: (e && e.title || '').slice(0, 30)});
   const title = (e && e.title) || '', artist = (e && e.artist) || '';
@@ -3307,6 +3310,7 @@ window.wallpaperPropertyListener = {
       const was = S.ai; S.ai = !!p.yapayzeka.value;
       if (S.ai && !was && WS_LAST && WS_LAST.key === M.key) wordSync(WS_LAST.key, WS_LAST.src, WS_LAST.timed); // çalan şarkı için hemen başla
     }
+    if (p.tani) S.diag = !!p.tani.value;
     if (p.ceviri){ const was = S.translate; S.translate = !!p.ceviri.value; if (S.translate && !was && mode === 'lyrics' && M.key) loadTranslation(M.key); }
     // ilk yüklemede gelen değer yalnızca kaydedilir; sonra her değişimde çalan şarkının tıklamaları silinir
     if (p.senkronsifirla){
@@ -3335,7 +3339,7 @@ let last = 0, perf = 0, slow = 0;
 // tek bir karede çıkan hata döngüyü öldürmesin: sonraki kare önceden istenir, hata kkdiag'a yazılır
 let ERRN = 0, ERRLAST = '', FRN = 0;
 // tanı: saniyede bir son durum (kare sayısı 0 ise döngü durmuş / WE askıya almış demektir)
-setInterval(() => { try { const T = curT(), ai = activeIndex(T); localStorage.setItem('kkhb', JSON.stringify({w: Date.now(), fr: FRN, mode, T: +T.toFixed(1), ai, nw: words.length, nb: blocks.filter(Boolean).length, xf: XFL, st: ai >= 0 && blocks[words[ai].li] ? blocks[words[ai].li].style : '', vis: document.visibilityState, cw: cv.width, ch: cv.height, po: +POSTER.toFixed(2), cz: +(+CAM.zoom || 0).toFixed(2), err: ERRLAST.slice(0, 200)})); } catch(_){} FRN = 0; }, 1000);
+setInterval(() => { if (!S.diag){ FRN = 0; return; } try { const T = curT(), ai = activeIndex(T); localStorage.setItem('kkhb', JSON.stringify({w: Date.now(), fr: FRN, mode, T: +T.toFixed(1), ai, nw: words.length, nb: blocks.filter(Boolean).length, xf: XFL, st: ai >= 0 && blocks[words[ai].li] ? blocks[words[ai].li].style : '', vis: document.visibilityState, cw: cv.width, ch: cv.height, po: +POSTER.toFixed(2), cz: +(+CAM.zoom || 0).toFixed(2), err: ERRLAST.slice(0, 200)})); } catch(_){} FRN = 0; }, 1000);
 function frame(ts){
   requestAnimationFrame(frame); FRN++;
   try { frameBody(ts); }

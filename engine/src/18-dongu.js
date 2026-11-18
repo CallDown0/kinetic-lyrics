@@ -14,7 +14,7 @@ let last = 0, perf = 0, slow = 0;
 // tek bir karede çıkan hata döngüyü öldürmesin: sonraki kare önceden istenir, hata kkdiag'a yazılır
 let ERRN = 0, ERRLAST = '', FRN = 0;
 // tanı: saniyede bir son durum (kare sayısı 0 ise döngü durmuş / WE askıya almış demektir)
-setInterval(() => { try { const T = curT(), ai = activeIndex(T); localStorage.setItem('kkhb', JSON.stringify({w: Date.now(), fr: FRN, mode, T: +T.toFixed(1), ai, nw: words.length, nb: blocks.filter(Boolean).length, xf: XFL, st: ai >= 0 && blocks[words[ai].li] ? blocks[words[ai].li].style : '', vis: document.visibilityState, cw: cv.width, ch: cv.height, po: +POSTER.toFixed(2), cz: +(+CAM.zoom || 0).toFixed(2), err: ERRLAST.slice(0, 200)})); } catch(_){} FRN = 0; }, 1000);
+setInterval(() => { if (!S.diag){ FRN = 0; return; } try { const T = curT(), ai = activeIndex(T); localStorage.setItem('kkhb', JSON.stringify({w: Date.now(), fr: FRN, mode, T: +T.toFixed(1), ai, nw: words.length, nb: blocks.filter(Boolean).length, xf: XFL, st: ai >= 0 && blocks[words[ai].li] ? blocks[words[ai].li].style : '', vis: document.visibilityState, cw: cv.width, ch: cv.height, po: +POSTER.toFixed(2), cz: +(+CAM.zoom || 0).toFixed(2), err: ERRLAST.slice(0, 200)})); } catch(_){} FRN = 0; }, 1000);
 function frame(ts){
   requestAnimationFrame(frame); FRN++;
   try { frameBody(ts); }
