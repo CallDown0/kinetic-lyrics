@@ -16,6 +16,7 @@ async function open(props, lrc, seed){
   await p.route(u => /^https?:/.test(u.href), r => {
     const u = r.request().url();
     if (u.includes('lrclib.net')) return r.fulfill({contentType: 'application/json', body: JSON.stringify([{trackName: 'Test Song', artistName: 'Tester', duration: 60, instrumental: false, plainLyrics: 'a', syncedLyrics: lrc || LRC}])});
+    if (u.includes('api.lrcmux.dev') && open.mux) return r.fulfill({contentType: 'application/json', body: JSON.stringify(open.mux)});
     if (u.includes('/senkron')) o.senk++;
     return r.abort();
   });
@@ -63,6 +64,17 @@ const ok = (c, msg) => { if (!c) throw new Error(msg); };
     const o = await open({yapayzeka: {value: true}}, ELRC);
     ok(await until(o, () => /kelime zamanlı/.test(document.getElementById('st').textContent)), 'kelime zamanları kullanılmadı'); await wait(o, 2500);
     ok(o.senk === 0, 'gereksiz senkron isteği gitti'); return o;
+  });
+  await test('kelime zamanlı kaynak (lrcmux) satır zamanlı LRCLIB sözünün yerine geçer, heceler kelimeye birleşir', async () => {
+    // "wor" + "ld " iki parça tek kelime; her satır 3 kelime
+    open.mux = {track: {title: 'Test Song', artist: 'Tester', duration: 60}, meta: {level: 'word'}, lines: Array.from({length: 20}, (_, i) => ({text: 'hello world line' + i, start: i * 3000, end: i * 3000 + 2000,
+      words: [{text: 'hello ', start: i * 3000, end: i * 3000 + 500}, {text: 'wor', start: i * 3000 + 500, end: i * 3000 + 800}, {text: 'ld ', start: i * 3000 + 800, end: i * 3000 + 1200}, {text: 'line' + i, start: i * 3000 + 1200, end: i * 3000 + 2000}]}))};
+    const o = await open({yapayzeka: {value: true}});
+    const geldi = await until(o, () => /kelime zamanlı/.test(document.getElementById('st').textContent)); open.mux = null;
+    ok(geldi, 'kelime zamanlı kaynak kullanılmadı'); await wait(o, 2500);
+    ok(o.senk === 0, 'gereksiz senkron isteği gitti');
+    const lrc = await o.p.evaluate(() => { const k = Object.keys(localStorage).find(k => k.startsWith('kk4:')); return JSON.parse(localStorage.getItem(k)).lrc.split('\n')[1]; });
+    ok(lrc === '[00:03.00] <00:03.00>hello <00:03.50>world <00:04.20>line1 <00:05.00>', 'gelişmiş LRC çevirisi yanlış: ' + lrc); return o;
   });
   await test('tanı kayıtları yalnız ayar açıkken yazılır', async () => {
     const o = await open({}); await wait(o, 2500);

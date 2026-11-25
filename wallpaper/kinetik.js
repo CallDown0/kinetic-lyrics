@@ -255,14 +255,50 @@ function cachePrune(max){
     all.forEach((x, i) => { if (i < cut){ localStorage.removeItem('kk4:' + x.k); localStorage.removeItem('kk4t:' + x.k); } else if (x.dead) localStorage.removeItem('kk4:' + x.k); });
   } catch(_){}
 }
+/* ---- lrcmux: kelime kelime zamanlı sözler (açık kaynak toplayıcı; KuGou, Deezer vb.) ---- */
+// Yabancı şarkıların çoğunda, bilinen Türkçe şarkıların bir kısmında her kelimenin zamanı hazır gelir: kelime senkronu
+// için sesi çözümlemeye (yerel servis) gerek kalmaz. Sonuç gelişmiş LRC'ye çevrilir, kalan her şey aynı yoldan yürür.
+// Kelime parçaları hece hece gelebilir ("y" + "üzden "); sonu boşlukla biten parça kelimeyi kapatır.
+function muxToLrc(lines){
+  const out = [];
+  for (const l of lines){
+    if (l.start == null || !(l.text || '').trim()) continue;
+    const ws = (l.words || []).filter(w => w && w.text && w.start != null);
+    let s = '[' + lrcTag(l.start / 1000) + '] ';
+    if (ws.length){
+      let yeni = true, son = l.start;
+      for (const w of ws){ if (yeni) s += '<' + lrcTag(w.start / 1000) + '>'; s += w.text; yeni = /\s$/.test(w.text); son = w.end != null ? w.end : son; }
+      s = s.trimEnd() + ' <' + lrcTag(Math.max(son, ws[ws.length - 1].start + 20) / 1000) + '>';
+    } else s += l.text.trim();
+    out.push(s);
+  }
+  return out.join('\n');
+}
+async function lrcmux(q){
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const p = {title: q.t, format: 'json', level: 'word'}; if (q.a) p.artist = q.a; if (M.dur) p.duration = String(Math.round(M.dur));
+    const r = await fetch('https://api.lrcmux.dev/get?' + new URLSearchParams(p), {signal: ctl.signal});
+    if (r.status === 404) return {none: true}; // kesin yok (hız sınırı ve ağ hatası kesin değil: null)
+    if (!r.ok) return null;
+    const j = await r.json(), tr = j.track || {}, lines = j.lines || [];
+    // başka şarkı gelmesin: ad tutmalı, sanatçı verilmişse o da
+    if (lines.length < 4 || sim(tr.title, q.t) < .6 || (q.a && tr.artist && sim(tr.artist, q.a) < .5)) return {none: true};
+    const word = lines.filter(l => l.words && l.words.length).length > lines.length * .6;
+    const lrc = muxToLrc(lines); if (!lrc) return {none: true};
+    return {lrc, word, name: (tr.title || q.t) + ' · ' + (tr.artist || q.a || ''), srcDur: tr.duration || 0};
+  } catch(e){ return null; } finally { clearTimeout(to); }
+}
 async function findLyrics(key){
-  const c = cacheGet(key); if (c) return c;
+  // mx: kelime zamanlı kaynağa soruldu. Ondan önce saklanmış satır zamanlı sözler bir kez yeniden aranır.
+  const c = cacheGet(key); if (c && (c.mx || /<\d+:\d+/.test(c.lrc || ''))) return c;
   const t0 = cleanTitle(M.title), a0 = cleanArtist(M.artist);
   // YouTube başlığı çoğu zaman "Sanatçı - Şarkı" olur, kanal adı ise sanatçı değildir
   const cands = [];
   const sp = t0.split(/\s[-–—]\s/);
   if (sp.length >= 2) cands.push({t: sp.slice(1).join(' - ').trim(), a: sp[0].trim()});
   cands.push({t: t0, a: a0});
+  const muxP = lrcmux(cands[0]); // LRCLIB ile aynı anda sorulur, beklemeyi uzatmaz
   let all = [], net = false;
   for (const q of cands){
     try {
@@ -280,14 +316,22 @@ async function findLyrics(key){
   const pick = has => all.filter(x => has(x) && !x.instrumental).map(x => (x._score = scoreOf(x), x)).sort((x, y) => y._score - x._score)[0];
   const best = pick(x => x.syncedLyrics), plain = pick(x => x.plainLyrics);
   let v = best && best._score >= 1.2 ? {lrc: best.syncedLyrics, name: best.trackName + ' · ' + best.artistName, srcDur: best.duration} : null;
+  // kelime zamanlı söz varsa o kullanılır (LRCLIB'in kendi sözü zaten kelime damgalıysa o kalır);
+  // süresi çalan parçadan çok farklıysa (başka sürüm) ve LRCLIB'inki daha yakınsa LRCLIB kalır
+  let mux = await muxP; const mx = mux ? 1 : 0; if (mux) net = true; if (mux && mux.none) mux = null;
+  const far = x => D && x.srcDur ? Math.abs(x.srcDur - D) : 0;
+  if (mux && mux.word && !(v && /<\d+:\d+/.test(v.lrc)) && !(v && far(mux) > 4 && far(v) < far(mux))) v = mux;
+  else if (mux && !v) v = mux; // satır zamanlı da olsa LRCLIB'de olmayan şarkı
   // LRCLIB'de zamanlı söz yoksa YouTube Music (LyricFind/Musixmatch; YouTube'un "Şarkı sözleri" sekmesindeki sözler)
   let yt = null;
   if (!v){ try { yt = await ytLyrics(sp.length >= 2 ? t0 : (a0 + ' ' + t0).trim(), cands[0]); net = true; } catch(e){} }
   if (!v && yt && yt.lrc) v = yt;
   if (!v && plain && plain._score >= 1.2) v = {plain: plain.plainLyrics, name: plain.trackName + ' · ' + plain.artistName}; // zamansız düz söz
   if (!v && yt && yt.plain) v = yt;
-  if (!v && !net) return {error: true};
+  if (!v && !net) return c || {error: true};
+  if (c && c.lrc && !(v && v.lrc)) v = c; // yeniden aramada daha iyisi çıkmadı: eldeki söz kalır
   v = v || {lrc: null};
+  if (mx) v.mx = 1;
   cacheSet(key, v); return v;
 }
 
