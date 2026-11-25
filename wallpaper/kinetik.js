@@ -4188,5 +4188,7 @@ if (window.wallpaperRegisterMediaPropertiesListener) window.wallpaperRegisterMed
 if (window.wallpaperRegisterMediaThumbnailListener) window.wallpaperRegisterMediaThumbnailListener(onThumb);
 if (window.wallpaperRegisterMediaPlaybackListener) window.wallpaperRegisterMediaPlaybackListener(onPlayback);
 if (window.wallpaperRegisterMediaTimelineListener) window.wallpaperRegisterMediaTimelineListener(onTimeline);
+// mobil uygulama (stage.html): sözlerden ses spektrumu üretmek için kelimeleri ve şarkı zamanını okur
+if (APP) window.KK.motor = {get words(){ return words; }, curT};
 
 })();
